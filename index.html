@@ -87,6 +87,26 @@
   .legend-row{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;}
   .legend-row .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle;}
   .week-detail{margin-top:18px;}
+  .view-toggle{display:flex;gap:6px;}
+  .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
+  .view-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .graph-wrap{display:flex;gap:8px;margin-top:14px;}
+  .graph-yaxis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-bottom:22px;height:220px;font-size:11px;color:var(--muted);width:28px;}
+  .graph-plot{flex:1;min-width:0;overflow-x:auto;}
+  .graph-bars{display:flex;align-items:flex-end;gap:3px;height:220px;border-left:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px 6px 0 6px;position:relative;min-width:780px;}
+  .graph-bars::before{content:'';position:absolute;left:0;right:0;top:25%;border-top:1px dashed var(--border);}
+  .graph-bars::after{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--border);}
+  .gbar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;height:100%;min-width:13px;cursor:pointer;}
+  .gbar{width:75%;border-radius:3px 3px 0 0;min-height:2px;position:relative;}
+  .gbar.open{background:#1d6fd6;}
+  .gbar.done{background:#16a34a;}
+  .gbar.lt{background:#7c3aed;}
+  .gbar-col.current .gbar{box-shadow:0 0 0 2px #f59e0b;}
+  .gbar-col.over .gbar{box-shadow:0 0 0 2px #dc2626;}
+  .gbar-col.selected .gbar{outline:3px solid var(--navy);outline-offset:1px;}
+  .gbar-col:hover .gbar{filter:brightness(1.15);}
+  .graph-xaxis{display:flex;gap:3px;padding:4px 6px 0 6px;min-width:780px;}
+  .graph-xaxis span{flex:1;min-width:13px;text-align:center;font-size:9px;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:50px;}
 </style>
 </head>
 <body>
@@ -106,17 +126,22 @@
   <!-- OVERVIEW TAB (landing page) -->
   <section id="tab-overview" class="tab active">
     <div class="card">
-      <h2>Open Topics — Calendar Year Overview <span id="overview-year-label" class="small"></span></h2>
-      <p class="small">Each tile is one calendar week. Click a week to see exactly which topics are resolved and which are still open. Blue = open topics planned, green = fully resolved, purple = mixed, amber outline = current week, red outline = over capacity.</p>
-      <div class="year-grid" id="year-grid"></div>
-      <div class="legend-row">
-        <span><span class="dot" style="background:#1d6fd6;"></span>Open topics planned</span>
-        <span><span class="dot" style="background:#16a34a;"></span>All resolved</span>
-        <span><span class="dot" style="background:#7c3aed;"></span>Mixed (some resolved, some open)</span>
-        <span><span class="dot" style="background:#e5e9ef;border:1px solid #cbd3dc;"></span>No topics</span>
-        <span><span class="yc current" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span>Current week</span>
-        <span><span class="yc over" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span>Over capacity</span>
+      <div class="week-header">
+        <h2 style="margin:0;">Open Topics — Calendar Year Graph <span id="overview-year-label" class="small"></span></h2>
+        <div class="view-toggle" id="overview-mode">
+          <button data-mode="tasks" class="active">Tasks</button>
+          <button data-mode="longterm">Long term</button>
+        </div>
       </div>
+      <p class="small" id="overview-desc"></p>
+      <div class="graph-wrap">
+        <div class="graph-yaxis" id="graph-yaxis"></div>
+        <div class="graph-plot">
+          <div class="graph-bars" id="year-grid"></div>
+          <div class="graph-xaxis" id="graph-xaxis"></div>
+        </div>
+      </div>
+      <div class="legend-row" id="overview-legend"></div>
       <div class="week-detail" id="week-detail"></div>
     </div>
 
@@ -456,44 +481,104 @@ function taskChipHtml(t){
     </div>`;
 }
 
+let overviewMode = 'tasks'; // 'tasks' | 'longterm'
+
+const OVERVIEW_LEGEND = {
+  tasks: `
+    <span><span class="dot" style="background:#16a34a;"></span>Resolved</span>
+    <span><span class="dot" style="background:#1d6fd6;"></span>Open / planned</span>
+    <span><span class="gbar-col current" style="display:inline-block;"><span class="gbar" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span></span>Current week</span>
+    <span><span class="gbar-col over" style="display:inline-block;"><span class="gbar" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span></span>Over capacity</span>`,
+  longterm: `
+    <span><span class="dot" style="background:#7c3aed;"></span>Active long-term topics that week</span>
+    <span><span class="gbar-col current" style="display:inline-block;"><span class="gbar" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span></span>Current week</span>`
+};
+const OVERVIEW_DESC = {
+  tasks: 'X-axis = calendar week, Y-axis = quantity of topics. Each bar is stacked: green = resolved, blue = still open / planned. Click a bar to see exactly which topics fall in that week.',
+  longterm: 'X-axis = calendar week, Y-axis = quantity of long-term topics whose period (now → end date) covers that week. Click a bar to see which long-term topics are active that week.'
+};
+
 function renderYearOverview(){
   const start = currentCW();
   const wiy = weeksInYear(start.year);
-  // cover the rest of this year plus enough lookahead for long-term/over capacity
   const slots = computePlanning(wiy + 4);
   const slotMap = {};
   slots.forEach(s=> slotMap[cwKey(s)] = s);
+  const longterm = data.tasks.filter(t=>t.type==='longterm' && t.endDate);
 
   document.getElementById('overview-year-label').textContent = `— ${start.year} (CW ${String(start.week).padStart(2,'0')} onward)`;
+  document.getElementById('overview-desc').textContent = OVERVIEW_DESC[overviewMode];
+  document.getElementById('overview-legend').innerHTML = OVERVIEW_LEGEND[overviewMode];
 
-  const grid = document.getElementById('year-grid');
-  grid.innerHTML = '';
+  // build per-week values
+  const weeks = [];
+  let maxVal = 1;
   for(let w=1; w<=wiy; w++){
     const wk = { year: start.year, week: w };
     const k = cwKey(wk);
-    const isPast = k < cwKey(start);
     const slot = slotMap[k];
-    const openCount = (slot ? slot.tasks.filter(t=>!t.done).length : 0);
-    const resolvedCount = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k).length;
-
-    let cls = 'empty';
-    if(openCount>0 && resolvedCount>0) cls='mixed';
-    else if(openCount>0) cls='open';
-    else if(resolvedCount>0) cls='done';
-
-    const over = slot && slot.tasks.length > data.capacity;
-    const isCurrent = (k === cwKey(start));
-    const total = openCount + resolvedCount;
-
-    const cell = document.createElement('div');
-    cell.className = `yc ${cls}${over?' over':''}${isCurrent?' current':''}${(selectedWeek && cwKey(selectedWeek)===k)?' selected':''}`;
-    cell.dataset.year = wk.year;
-    cell.dataset.week = wk.week;
-    cell.innerHTML = `<span class="wk">CW${String(w).padStart(2,'0')}</span><span class="n">${total||''}</span>`;
-    if(isPast && total===0) cell.title = 'Past week, no recorded topics';
-    grid.appendChild(cell);
+    let entry = { wk, k, isCurrent: k===cwKey(start) };
+    if(overviewMode === 'tasks'){
+      entry.openCount = slot ? slot.tasks.filter(t=>!t.done).length : 0;
+      entry.resolvedCount = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k).length;
+      entry.total = entry.openCount + entry.resolvedCount;
+      entry.over = !!(slot && slot.tasks.length > data.capacity);
+    } else {
+      entry.activeLT = longterm.filter(t=>{
+        const end = dateToCW(t.endDate);
+        if(!end) return false;
+        return cwKey(end) >= k && k >= cwKey(start);
+      });
+      entry.total = entry.activeLT.length;
+    }
+    maxVal = Math.max(maxVal, entry.total);
+    weeks.push(entry);
   }
-  grid.querySelectorAll('.yc').forEach(c=>{
+
+  // Y axis labels (4 ticks)
+  const yaxis = document.getElementById('graph-yaxis');
+  yaxis.innerHTML = '';
+  const ticks = 4;
+  for(let i=ticks;i>=0;i--){
+    const v = Math.round(maxVal * i / ticks);
+    const lbl = document.createElement('div');
+    lbl.textContent = v;
+    yaxis.appendChild(lbl);
+  }
+
+  const grid = document.getElementById('year-grid');
+  const xaxis = document.getElementById('graph-xaxis');
+  grid.innerHTML = '';
+  xaxis.innerHTML = '';
+  const PLOT_H = 220 - 6; // minus top padding
+
+  weeks.forEach(entry=>{
+    const col = document.createElement('div');
+    const sel = selectedWeek && cwKey(selectedWeek)===entry.k;
+    col.className = 'gbar-col' + (entry.isCurrent?' current':'') + (entry.over?' over':'') + (sel?' selected':'');
+    col.dataset.year = entry.wk.year;
+    col.dataset.week = entry.wk.week;
+    col.title = `CW ${cwLabel(entry.wk.year, entry.wk.week)} — ${entry.total} topic${entry.total===1?'':'s'}`;
+
+    if(overviewMode === 'tasks'){
+      const doneH = Math.round(entry.resolvedCount/maxVal*PLOT_H);
+      const openH = Math.round(entry.openCount/maxVal*PLOT_H);
+      col.innerHTML = `
+        <div class="gbar open" style="height:${Math.max(entry.openCount?2:0, openH)}px;border-radius:3px 3px 0 0;"></div>
+        <div class="gbar done" style="height:${Math.max(entry.resolvedCount?2:0, doneH)}px;border-radius:0 0 0 0;margin-top:1px;"></div>`;
+      if(entry.total===0) col.innerHTML = `<div class="gbar open" style="height:2px;opacity:.25;"></div>`;
+    } else {
+      const h = Math.round(entry.total/maxVal*PLOT_H);
+      col.innerHTML = `<div class="gbar lt" style="height:${entry.total ? Math.max(2,h) : 2}px;${entry.total?'':'opacity:.2;'}"></div>`;
+    }
+    grid.appendChild(col);
+
+    const xl = document.createElement('span');
+    xl.textContent = 'CW' + String(entry.wk.week).padStart(2,'0');
+    xaxis.appendChild(xl);
+  });
+
+  grid.querySelectorAll('.gbar-col').forEach(c=>{
     c.addEventListener('click', ()=>{
       selectedWeek = { year: parseInt(c.dataset.year,10), week: parseInt(c.dataset.week,10) };
       renderYearOverview();
@@ -501,6 +586,14 @@ function renderYearOverview(){
     });
   });
 }
+
+document.getElementById('overview-mode').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-mode]');
+  if(!btn) return;
+  overviewMode = btn.dataset.mode;
+  document.querySelectorAll('#overview-mode button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderYearOverview();
+});
 
 function renderWeekDetail(){
   const wrap = document.getElementById('week-detail');
