@@ -17,7 +17,10 @@
   nav{display:flex;gap:6px;}
   nav button{background:rgba(255,255,255,.08);color:#dbe6f5;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;letter-spacing:.2px;}
   nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  main{max-width:1200px;margin:24px auto;padding:0 24px;}
+  main{max-width:1500px;margin:24px auto;padding:0 24px;}
+  .layout{display:flex;gap:20px;align-items:flex-start;}
+  .content{flex:1;min-width:0;}
+  .sidebar{width:340px;flex-shrink:0;position:sticky;top:24px;}
   .tab{display:none;}
   .tab.active{display:block;}
   .card{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--navy2);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,39,71,.04);}
@@ -69,75 +72,68 @@
   .small{font-size:12px;color:var(--muted);}
   .note-item{border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;background:#fafbfc;}
   .note-item .meta{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .year-grid{display:grid;grid-template-columns:repeat(13,1fr);gap:6px;}
+  .yc{position:relative;border-radius:5px;padding:6px 4px;text-align:center;font-size:11px;cursor:pointer;border:1px solid transparent;color:#fff;font-weight:600;min-height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+  .yc .wk{font-size:10px;opacity:.85;}
+  .yc .n{font-size:13px;}
+  .yc.empty{background:#e5e9ef;color:#9aa5b1;}
+  .yc.open{background:#1d6fd6;}
+  .yc.mixed{background:#7c3aed;}
+  .yc.done{background:#16a34a;}
+  .yc.over{box-shadow:inset 0 0 0 2px #dc2626;}
+  .yc.current{border:2px solid #f59e0b;}
+  .yc.selected{outline:3px solid var(--navy);outline-offset:1px;}
+  .yc:hover{filter:brightness(1.12);}
+  .legend-row{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;}
+  .legend-row .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle;}
+  .week-detail{margin-top:18px;}
 </style>
 </head>
 <body>
 <header>
   <div><h1>Personal Planning</h1><div class="sub">Change Management &amp; Product Portfolio</div></div>
   <nav id="tabs">
-    <button data-tab="tasks" class="active">Tasks</button>
-    <button data-tab="planning">CW Planning</button>
+    <button data-tab="overview" class="active">Open Topics Overview</button>
+    <button data-tab="tasks">Tasks</button>
     <button data-tab="notes">Notes</button>
     <button data-tab="settings">Settings</button>
   </nav>
 </header>
 <main>
+<div class="layout">
+  <div class="content">
 
-  <!-- TASKS TAB -->
-  <section id="tab-tasks" class="tab active">
+  <!-- OVERVIEW TAB (landing page) -->
+  <section id="tab-overview" class="tab active">
     <div class="card">
-      <h2 id="form-title">Add Task</h2>
-      <input type="hidden" id="task-id">
-      <div class="row">
-        <div>
-          <label>Title</label>
-          <input type="text" id="f-title" placeholder="Task title">
-        </div>
-        <div>
-          <label>Priority</label>
-          <select id="f-priority"><option>High</option><option selected>Normal</option></select>
-        </div>
+      <h2>Open Topics — Calendar Year Overview <span id="overview-year-label" class="small"></span></h2>
+      <p class="small">Each tile is one calendar week. Click a week to see exactly which topics are resolved and which are still open. Blue = open topics planned, green = fully resolved, purple = mixed, amber outline = current week, red outline = over capacity.</p>
+      <div class="year-grid" id="year-grid"></div>
+      <div class="legend-row">
+        <span><span class="dot" style="background:#1d6fd6;"></span>Open topics planned</span>
+        <span><span class="dot" style="background:#16a34a;"></span>All resolved</span>
+        <span><span class="dot" style="background:#7c3aed;"></span>Mixed (some resolved, some open)</span>
+        <span><span class="dot" style="background:#e5e9ef;border:1px solid #cbd3dc;"></span>No topics</span>
+        <span><span class="yc current" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span>Current week</span>
+        <span><span class="yc over" style="display:inline-block;width:11px;height:11px;border-radius:3px;background:#fff;"></span>Over capacity</span>
       </div>
-      <div class="row">
-        <div>
-          <label>Specification</label>
-          <select id="f-spec"><option>Internal</option><option>External</option></select>
-        </div>
-        <div>
-          <label>Required Department</label>
-          <select id="f-dept">
-            <option>R&D</option><option>Sales</option><option>PUR</option>
-            <option>PI</option><option>CS</option><option>PM</option><option>CC</option>
-          </select>
-        </div>
-        <div>
-          <label>Category</label>
-          <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option></select>
-        </div>
-        <div>
-          <label>OEM</label>
-          <select id="f-oem"><option>Stellantis</option><option>IVECO</option><option>KIA</option><option>Other</option><option>Multiple</option></select>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Type</label>
-          <select id="f-type">
-            <option value="regular">Regular task (auto-planned per week)</option>
-            <option value="longterm">Long-term planning task</option>
-          </select>
-        </div>
-        <div id="longterm-week-wrap" style="display:none;">
-          <label>End date (when this should be finished)</label>
-          <input type="date" id="f-enddate">
-        </div>
-      </div>
-      <label>Description / notes (optional)</label>
-      <textarea id="f-desc" placeholder="Details about this task..."></textarea>
-      <button class="primary" id="save-task">Add Task</button>
-      <button class="secondary" id="cancel-edit" style="display:none;margin-top:14px;">Cancel edit</button>
+      <div class="week-detail" id="week-detail"></div>
     </div>
 
+    <div class="card">
+      <h2>Resolved vs. Planned — Recent Weeks</h2>
+      <p class="small">Bars show how many topics were actually completed in recent weeks, and how many are currently planned for this week.</p>
+      <div class="chart" id="resolved-chart"></div>
+      <div class="chart-labels" id="resolved-chart-labels"></div>
+      <div class="chart-legend">
+        <span><span class="dot" style="background:#16a34a;"></span>Resolved (past weeks)</span>
+        <span><span class="dot" style="background:var(--accent);"></span>Planned (this week)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TASKS TAB -->
+  <section id="tab-tasks" class="tab">
     <div class="card">
       <h2>All Tasks</h2>
       <table>
@@ -146,27 +142,7 @@
         </tr></thead>
         <tbody id="task-table-body"></tbody>
       </table>
-      <p class="empty" id="no-tasks" style="display:none;">No tasks yet. Add one above.</p>
-    </div>
-  </section>
-
-  <!-- PLANNING TAB -->
-  <section id="tab-planning" class="tab">
-    <div class="card">
-      <h2>Resolved vs. Planned — per Calendar Week</h2>
-      <p class="small">Bars show how many tasks were actually completed in recent weeks, and how many are currently planned for this week.</p>
-      <div class="chart" id="resolved-chart"></div>
-      <div class="chart-labels" id="resolved-chart-labels"></div>
-      <div class="chart-legend">
-        <span><span class="dot" style="background:#16a34a;"></span>Resolved (past weeks)</span>
-        <span><span class="dot" style="background:var(--accent);"></span>Planned (this week)</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Calendar Week Overview</h2>
-      <p class="small">Tasks are auto-distributed across weeks starting from the current calendar week, respecting your weekly capacity (set in Settings). Unfinished tasks automatically shift to the next week. Long-term tasks are highlighted across the period from now until their end date.</p>
-      <div id="planning-weeks"></div>
+      <p class="empty" id="no-tasks" style="display:none;">No tasks yet. Use the panel on the right to add one.</p>
     </div>
   </section>
 
@@ -203,6 +179,44 @@
     </div>
   </section>
 
+  </div>
+
+  <!-- PERSISTENT TASK CREATION SIDEBAR -->
+  <aside class="sidebar">
+    <div class="card">
+      <h2 id="form-title">Add Task</h2>
+      <input type="hidden" id="task-id">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="Task title">
+      <label>Priority</label>
+      <select id="f-priority"><option>High</option><option selected>Normal</option></select>
+      <label>Specification</label>
+      <select id="f-spec"><option>Internal</option><option>External</option></select>
+      <label>Required Department</label>
+      <select id="f-dept">
+        <option>R&D</option><option>Sales</option><option>PUR</option>
+        <option>PI</option><option>CS</option><option>PM</option><option>CC</option>
+      </select>
+      <label>Category</label>
+      <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option></select>
+      <label>OEM</label>
+      <select id="f-oem"><option>Stellantis</option><option>IVECO</option><option>KIA</option><option>Other</option><option>Multiple</option></select>
+      <label>Type</label>
+      <select id="f-type">
+        <option value="regular">Regular task (auto-planned per week)</option>
+        <option value="longterm">Long-term planning task</option>
+      </select>
+      <div id="longterm-week-wrap" style="display:none;">
+        <label>End date (when this should be finished)</label>
+        <input type="date" id="f-enddate">
+      </div>
+      <label>Description / notes (optional)</label>
+      <textarea id="f-desc" placeholder="Details about this task..."></textarea>
+      <button class="primary" id="save-task">Add Task</button>
+      <button class="secondary" id="cancel-edit" style="display:none;margin-top:14px;width:100%;">Cancel edit</button>
+    </div>
+  </aside>
+</div>
 </main>
 
 <script>
@@ -422,46 +436,102 @@ document.getElementById('save-task').addEventListener('click', ()=>{
   renderAll();
 });
 
-// ---------- Rendering: Planning tab ----------
-function renderPlanning(){
-  const wrap = document.getElementById('planning-weeks');
-  wrap.innerHTML = '';
-  const slots = computePlanning(16);
-  slots.forEach((slot, idx)=>{
-    const block = document.createElement('div');
-    const inPeriod = slot.highlighted && slot.highlighted.length;
-    block.className = 'week-block card' + (inPeriod ? ' in-period' : '');
-    const over = slot.tasks.length > data.capacity;
-    block.innerHTML = `
-      <div class="week-header">
-        <h3>CW ${slot.label} ${idx===0 ? '<span class="small">(current week)</span>' : ''}</h3>
-        <span class="week-count ${over?'over':''}">${slot.tasks.length} / ${data.capacity} topics</span>
+// ---------- Rendering: Open Topics year overview (clickable CW grid) ----------
+let selectedWeek = currentCW();
+
+function taskChipHtml(t){
+  return `
+    <div class="task-chip${t.done?' done':''}">
+      <div class="left">
+        <strong>${escapeHtml(t.title)}</strong>
+        <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
+        <span class="badge dept">${t.department}</span>
+        <span class="badge cat">${t.category}</span>
+        <span class="badge oem">${t.oem||'-'}</span>
+        ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
       </div>
-      ${inPeriod ? `<p class="small">⏳ Active long-term period: ${slot.highlighted.map(t=>escapeHtml(t.title)+' (due '+t.endDate+')').join(', ')}</p>` : ''}
-    `;
-    if(slot.tasks.length===0){
-      block.innerHTML += '<p class="empty">No tasks planned for this week.</p>';
-    } else {
-      slot.tasks.forEach(t=>{
-        const chip = document.createElement('div');
-        chip.className = 'task-chip' + (t.done ? ' done':'');
-        chip.innerHTML = `
-          <div class="left">
-            <strong>${escapeHtml(t.title)}</strong>
-            <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
-            <span class="badge dept">${t.department}</span>
-            <span class="badge cat">${t.category}</span>
-            <span class="badge oem">${t.oem||'-'}</span>
-            ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
-          </div>
-          <div class="actions">
-            <button class="secondary" data-id="${t.id}">${t.done ? 'Reopen' : 'Mark done'}</button>
-          </div>`;
-        block.appendChild(chip);
-      });
-    }
-    wrap.appendChild(block);
+      <div class="actions">
+        <button class="secondary" data-id="${t.id}">${t.done ? 'Reopen' : 'Mark done'}</button>
+      </div>
+    </div>`;
+}
+
+function renderYearOverview(){
+  const start = currentCW();
+  const wiy = weeksInYear(start.year);
+  // cover the rest of this year plus enough lookahead for long-term/over capacity
+  const slots = computePlanning(wiy + 4);
+  const slotMap = {};
+  slots.forEach(s=> slotMap[cwKey(s)] = s);
+
+  document.getElementById('overview-year-label').textContent = `— ${start.year} (CW ${String(start.week).padStart(2,'0')} onward)`;
+
+  const grid = document.getElementById('year-grid');
+  grid.innerHTML = '';
+  for(let w=1; w<=wiy; w++){
+    const wk = { year: start.year, week: w };
+    const k = cwKey(wk);
+    const isPast = k < cwKey(start);
+    const slot = slotMap[k];
+    const openCount = (slot ? slot.tasks.filter(t=>!t.done).length : 0);
+    const resolvedCount = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k).length;
+
+    let cls = 'empty';
+    if(openCount>0 && resolvedCount>0) cls='mixed';
+    else if(openCount>0) cls='open';
+    else if(resolvedCount>0) cls='done';
+
+    const over = slot && slot.tasks.length > data.capacity;
+    const isCurrent = (k === cwKey(start));
+    const total = openCount + resolvedCount;
+
+    const cell = document.createElement('div');
+    cell.className = `yc ${cls}${over?' over':''}${isCurrent?' current':''}${(selectedWeek && cwKey(selectedWeek)===k)?' selected':''}`;
+    cell.dataset.year = wk.year;
+    cell.dataset.week = wk.week;
+    cell.innerHTML = `<span class="wk">CW${String(w).padStart(2,'0')}</span><span class="n">${total||''}</span>`;
+    if(isPast && total===0) cell.title = 'Past week, no recorded topics';
+    grid.appendChild(cell);
+  }
+  grid.querySelectorAll('.yc').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      selectedWeek = { year: parseInt(c.dataset.year,10), week: parseInt(c.dataset.week,10) };
+      renderYearOverview();
+      renderWeekDetail();
+    });
   });
+}
+
+function renderWeekDetail(){
+  const wrap = document.getElementById('week-detail');
+  if(!selectedWeek){ wrap.innerHTML=''; return; }
+  const k = cwKey(selectedWeek);
+  const label = cwLabel(selectedWeek.year, selectedWeek.week);
+  const start = currentCW();
+
+  const slots = computePlanning(weeksInYear(start.year) + 4);
+  const slot = slots.find(s=> cwKey(s)===k);
+  const open = slot ? slot.tasks.filter(t=>!t.done) : [];
+  const resolved = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k);
+
+  const isCurrent = k===cwKey(start);
+  const over = slot && slot.tasks.length > data.capacity;
+
+  let html = `<div class="week-header">
+      <h3>CW ${label} ${isCurrent?'<span class="small">(current week)</span>':''}</h3>
+      <span class="week-count ${over?'over':''}">${(slot?slot.tasks.length:0)} / ${data.capacity} topics planned</span>
+    </div>`;
+
+  if(slot && slot.highlighted && slot.highlighted.length){
+    html += `<p class="small">⏳ Active long-term period: ${slot.highlighted.map(t=>escapeHtml(t.title)+' (due '+t.endDate+')').join(', ')}</p>`;
+  }
+
+  html += `<p class="small"><strong>Resolved (${resolved.length})</strong></p>`;
+  html += resolved.length ? resolved.map(taskChipHtml).join('') : '<p class="empty">Nothing resolved in this week yet.</p>';
+  html += `<p class="small" style="margin-top:14px;"><strong>Still open / planned (${open.length})</strong></p>`;
+  html += open.length ? open.map(taskChipHtml).join('') : '<p class="empty">No open topics planned for this week.</p>';
+
+  wrap.innerHTML = html;
   wrap.querySelectorAll('button[data-id]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const t = data.tasks.find(x=>x.id===btn.dataset.id);
@@ -568,7 +638,8 @@ document.getElementById('tabs').addEventListener('click', (e)=>{
 
 function renderAll(){
   renderTaskTable();
-  renderPlanning();
+  renderYearOverview();
+  renderWeekDetail();
   renderResolvedChart();
   renderNotes();
 }
