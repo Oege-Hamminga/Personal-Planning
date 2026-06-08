@@ -125,7 +125,20 @@
   .progress-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .25s ease;}
   .progress-fill.done{background:#1c8a4a;}
   .progress-fill.mid{background:#e08e1a;}
-  .progress-pct{font-size:11px;font-weight:700;color:var(--muted);min-width:32px;text-align:right;}
+  .progress-pct{font-size:11px;font-weight:700;color:var(--muted);min-width:30px;text-align:right;}
+  .progress-slider{position:relative;flex:1;height:18px;display:flex;align-items:center;cursor:pointer;}
+  .progress-slider-track{position:absolute;left:0;right:0;height:6px;background:#eee;border-radius:6px;overflow:hidden;}
+  .progress-slider-fill{height:100%;border-radius:6px;background:var(--accent);}
+  .progress-slider-fill.mid{background:#e08e1a;}
+  .progress-slider-fill.done{background:#1c8a4a;}
+  .progress-slider-handle{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--accent);transform:translate(-50%,-50%);cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .progress-slider-handle.mid{border-color:#e08e1a;}
+  .progress-slider-handle.done{border-color:#1c8a4a;}
+  .progress-slider-handle:active{cursor:grabbing;}
+  .wc-actions{display:flex;gap:4px;flex-shrink:0;}
+  .wc-btn{width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;color:var(--muted);}
+  .wc-btn.wc-check:hover{background:#1c8a4a;color:#fff;border-color:#1c8a4a;}
+  .wc-btn.wc-cross:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
   .subtask-list{list-style:none;margin:8px 0 0;padding:0;}
   .subtask-list li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
   .subtask-list li:last-child{border-bottom:none;}
@@ -327,7 +340,8 @@
         <input type="date" id="f-enddate">
         <label>Subtasks</label>
         <div class="row" style="gap:8px;">
-          <div style="flex:1;min-width:0;"><input type="text" id="f-subtask-input" placeholder="Add a subtask..."></div>
+          <div style="flex:2;min-width:0;"><input type="text" id="f-subtask-input" placeholder="Add a subtask..."></div>
+          <div style="flex:1;min-width:0;"><input type="date" id="f-subtask-cw" title="Target calendar week to finish this subtask"></div>
           <button class="secondary" id="f-subtask-add" type="button" style="width:auto;">Add</button>
         </div>
         <ul id="f-subtask-list" class="subtask-list"></ul>
@@ -407,7 +421,6 @@ function computePlanning(numWeeks){
   const cap = data.capacity;
   const start = currentCW();
   const allRegular = data.tasks.filter(t=>t.type==='regular' && !t.done);
-  const longterm = data.tasks.filter(t=>t.type==='longterm');
 
   // build week slots
   const slots = [];
@@ -434,23 +447,7 @@ function computePlanning(numWeeks){
   const regular = allRegular.filter(t=>!placed.has(t.id))
     .sort((a,b)=> (a.priority===b.priority?0:(a.priority==='High'?-1:1)) || a.createdAt - b.createdAt);
 
-  // place long-term tasks into their end-date week if within range, else attach to nearest/last slot;
-  // mark every slot in [now .. end date] as part of that task's active highlight period
-  longterm.forEach(t=>{
-    const end = dateToCW(t.endDate);
-    let idx = slots.length - 1;
-    if(end){
-      const k = cwKey(end);
-      if(k in slotIndex) idx = slotIndex[k];
-      else if(k < cwKey(start)) idx = 0;
-      else idx = slots.length-1;
-      for(let i=0;i<=idx;i++){
-        slots[i].highlighted = slots[i].highlighted || [];
-        slots[i].highlighted.push(t);
-      }
-    }
-    slots[idx].tasks.push(t);
-  });
+  // long-term projects are tracked exclusively via the Gantt timeline and never enter the weekly columns
 
   // distribute regular tasks: fill week by week respecting capacity (long-term tasks count toward capacity too)
   let taskPtr = 0;
@@ -517,6 +514,7 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s
 
 function taskProgressPct(t){
   if(t.done) return 100;
+  if(typeof t.manualProgress === 'number') return t.manualProgress;
   if(t.subtasks && t.subtasks.length){
     const doneCount = t.subtasks.filter(s=>s.done).length;
     return Math.round(doneCount / t.subtasks.length * 100);
@@ -537,6 +535,7 @@ function renderSubtaskFormList(){
     <li class="${s.done?'done':''}">
       <input type="checkbox" data-idx="${i}" class="st-toggle" ${s.done?'checked':''}>
       <span class="lbl">${escapeHtml(s.title)}</span>
+      ${s.targetCW ? `<span class="small" style="margin-left:6px;">target CW ${cwLabel(s.targetCW.year, s.targetCW.week)}</span>` : ''}
       <button type="button" data-idx="${i}" class="st-remove" title="Remove">&times;</button>
     </li>`).join('');
   list.querySelectorAll('.st-toggle').forEach(cb=>{
@@ -548,10 +547,12 @@ function renderSubtaskFormList(){
 }
 document.getElementById('f-subtask-add').addEventListener('click', ()=>{
   const input = document.getElementById('f-subtask-input');
+  const cwInput = document.getElementById('f-subtask-cw');
   const title = input.value.trim();
   if(!title) return;
-  formSubtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false });
+  formSubtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false, targetCW: cwInput.value ? dateToCW(cwInput.value) : null });
   input.value = '';
+  cwInput.value = '';
   renderSubtaskFormList();
 });
 
@@ -754,7 +755,7 @@ function renderLongTermGantt(){
     }
     const sub = t.description ? `<div class="gantt-sub" style="margin-left:${left}%;width:${width}%;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</div>` : '';
     const subtasks = (t.subtasks && t.subtasks.length) ? `<div class="gantt-subtasks" style="margin-left:${left}%;width:${width}%;">${t.subtasks.map(s=>
-      `<span class="st-chip${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}" title="Click to toggle">${escapeHtml(s.title)}</span>`).join('')}</div>` : '';
+      `<span class="st-chip${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}" title="Click to toggle${s.targetCW ? ' — target CW '+cwLabel(s.targetCW.year,s.targetCW.week) : ''}">${escapeHtml(s.title)}${s.targetCW ? ' · CW'+String(s.targetCW.week).padStart(2,'0') : ''}</span>`).join('')}</div>` : '';
     return `
       <div class="gantt-row-wrap">
         <div class="gantt-row">
@@ -797,15 +798,102 @@ function renderLongTermGantt(){
 function wcItemHtml(t){
   const pct = taskProgressPct(t);
   const fillClass = t.done ? 'done' : (pct >= 50 ? 'mid' : '');
-  const pctLabel = t.done ? 'Done' : (pct + '%');
   return `
     <div class="wc-item" draggable="true" data-id="${t.id}">
       <div class="ttl">${escapeHtml(t.title)}</div>
       <div class="progress-row">
-        <div class="progress-track"><div class="progress-fill ${fillClass}" style="width:${pct}%;"></div></div>
-        <div class="progress-pct">${pctLabel}</div>
+        <div class="progress-slider" data-id="${t.id}">
+          <div class="progress-slider-track"><div class="progress-slider-fill ${fillClass}" style="width:${pct}%;"></div></div>
+          <div class="progress-slider-handle ${fillClass}" style="left:${pct}%;"></div>
+        </div>
+        <div class="progress-pct">${pct}%</div>
+        <div class="wc-actions">
+          <button type="button" class="wc-btn wc-check" data-id="${t.id}" title="Mark completed">&#10003;</button>
+          <button type="button" class="wc-btn wc-cross" data-id="${t.id}" title="Not finished — push to next week">&#10007;</button>
+        </div>
       </div>
     </div>`;
+}
+
+function setupWcItemControls(){
+  document.querySelectorAll('.progress-slider').forEach(slider=>{
+    const id = slider.dataset.id;
+    const handle = slider.querySelector('.progress-slider-handle');
+    const fill = slider.querySelector('.progress-slider-fill');
+    const pctLabel = slider.parentElement.querySelector('.progress-pct');
+    const item = slider.closest('.wc-item');
+
+    function applyVisual(pct){
+      const cls = pct >= 100 ? 'done' : (pct >= 50 ? 'mid' : '');
+      handle.style.left = pct + '%';
+      fill.style.width = pct + '%';
+      handle.className = 'progress-slider-handle' + (cls ? ' '+cls : '');
+      fill.className = 'progress-slider-fill' + (cls ? ' '+cls : '');
+      if(pctLabel) pctLabel.textContent = pct + '%';
+      return pct;
+    }
+    function pctFromClientX(clientX){
+      const rect = slider.getBoundingClientRect();
+      return Math.max(0, Math.min(100, Math.round((clientX - rect.left) / rect.width * 100)));
+    }
+    function onMove(e){
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      applyVisual(pctFromClientX(clientX));
+    }
+    function onUp(e){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      const pct = applyVisual(pctFromClientX(clientX));
+      const t = data.tasks.find(x=>x.id===id);
+      if(t){
+        t.manualProgress = pct;
+        if(pct >= 100){ t.done = true; t.completedWeek = currentCW(); }
+        else if(t.done){ t.done = false; t.completedWeek = null; }
+        saveData();
+      }
+      if(item) item.draggable = true;
+      renderAll();
+    }
+    function startDrag(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(item) item.draggable = false;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      applyVisual(pctFromClientX(clientX));
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove);
+      document.addEventListener('touchend', onUp);
+    }
+    slider.addEventListener('mousedown', startDrag);
+    slider.addEventListener('touchstart', startDrag);
+    slider.addEventListener('click', (e)=> e.stopPropagation());
+  });
+
+  document.querySelectorAll('.wc-check').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const t = data.tasks.find(x=>x.id===btn.dataset.id);
+      if(t){ t.done = true; t.manualProgress = 100; t.completedWeek = currentCW(); saveData(); renderAll(); }
+    });
+  });
+  document.querySelectorAll('.wc-cross').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const t = data.tasks.find(x=>x.id===btn.dataset.id);
+      if(!t) return;
+      const col = btn.closest('.week-col');
+      const cur = col ? { year: parseInt(col.dataset.cwYear,10), week: parseInt(col.dataset.cwWeek,10) } : currentCW();
+      t.done = false;
+      t.completedWeek = null;
+      t.plannedOverride = nextCW(cur.year, cur.week);
+      saveData();
+      renderAll();
+    });
+  });
 }
 
 function openTaskDetail(t){
@@ -872,6 +960,7 @@ function renderUpcomingWeeks(){
   document.getElementById('remaining-count').textContent = remaining.length + ' topic' + (remaining.length===1?'':'s');
 
   setupDragAndDrop();
+  setupWcItemControls();
 }
 
 function setupDragAndDrop(){
