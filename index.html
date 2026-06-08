@@ -127,10 +127,16 @@
   <section id="tab-overview" class="tab active">
     <div class="card">
       <div class="week-header">
-        <h2 style="margin:0;">Open Topics — Calendar Year Graph <span id="overview-year-label" class="small"></span></h2>
-        <div class="view-toggle" id="overview-mode">
-          <button data-mode="tasks" class="active">Tasks</button>
-          <button data-mode="longterm">Long term</button>
+        <h2 style="margin:0;">Open Topics — Calendar Week Graph <span id="overview-year-label" class="small"></span></h2>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+          <div class="view-toggle" id="overview-range">
+            <button data-range="window" class="active">Current overview (-2 / +4 weeks)</button>
+            <button data-range="year">Full year (CW)</button>
+          </div>
+          <div class="view-toggle" id="overview-mode">
+            <button data-mode="tasks" class="active">Tasks</button>
+            <button data-mode="longterm">Long term</button>
+          </div>
         </div>
       </div>
       <p class="small" id="overview-desc"></p>
@@ -279,6 +285,15 @@ function weeksInYear(year){
 function nextCW(year, week){
   const wiy = weeksInYear(year);
   return week >= wiy ? { year: year+1, week: 1 } : { year, week: week+1 };
+}
+function prevCW(year, week){
+  return week <= 1 ? { year: year-1, week: weeksInYear(year-1) } : { year, week: week-1 };
+}
+function addCW(o, n){
+  let cur = { year: o.year, week: o.week };
+  for(let i=0;i<n;i++) cur = nextCW(cur.year, cur.week);
+  for(let i=0;i>n;i--) cur = prevCW(cur.year, cur.week);
+  return cur;
 }
 function cwKey(o){ return o.year*100 + o.week; }
 function dateToCW(dateStr){
@@ -498,23 +513,39 @@ const OVERVIEW_DESC = {
   longterm: 'X-axis = calendar week, Y-axis = quantity of long-term topics whose period (now → end date) covers that week. Click a bar to see which long-term topics are active that week.'
 };
 
+let overviewRange = 'window'; // 'window' (-2/+4 weeks) | 'year' (full CW year)
+
 function renderYearOverview(){
   const start = currentCW();
   const wiy = weeksInYear(start.year);
-  const slots = computePlanning(wiy + 4);
+
+  // Determine the list of week-objects to plot, based on selected range
+  let weekList;
+  let labelSuffix;
+  if(overviewRange === 'window'){
+    weekList = [];
+    for(let i=-2;i<=4;i++) weekList.push(addCW(start, i));
+    labelSuffix = `— CW ${cwLabel(weekList[0].year, weekList[0].week)} → CW ${cwLabel(weekList[weekList.length-1].year, weekList[weekList.length-1].week)}`;
+  } else {
+    weekList = [];
+    for(let w=1; w<=wiy; w++) weekList.push({ year: start.year, week: w });
+    labelSuffix = `— full year ${start.year}`;
+  }
+
+  const lookahead = overviewRange === 'window' ? 8 : (wiy + 4);
+  const slots = computePlanning(lookahead);
   const slotMap = {};
   slots.forEach(s=> slotMap[cwKey(s)] = s);
   const longterm = data.tasks.filter(t=>t.type==='longterm' && t.endDate);
 
-  document.getElementById('overview-year-label').textContent = `— ${start.year} (CW ${String(start.week).padStart(2,'0')} onward)`;
+  document.getElementById('overview-year-label').textContent = labelSuffix;
   document.getElementById('overview-desc').textContent = OVERVIEW_DESC[overviewMode];
   document.getElementById('overview-legend').innerHTML = OVERVIEW_LEGEND[overviewMode];
 
   // build per-week values
   const weeks = [];
   let maxVal = 1;
-  for(let w=1; w<=wiy; w++){
-    const wk = { year: start.year, week: w };
+  weekList.forEach(wk=>{
     const k = cwKey(wk);
     const slot = slotMap[k];
     let entry = { wk, k, isCurrent: k===cwKey(start) };
@@ -533,16 +564,20 @@ function renderYearOverview(){
     }
     maxVal = Math.max(maxVal, entry.total);
     weeks.push(entry);
-  }
+  });
 
-  // Y axis labels (4 ticks)
+  // Y axis: scale dynamically to the actual qty of topics in view, with a "nice" rounded top value
+  const ticks = 4;
+  const rawStep = maxVal / ticks;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(Math.max(1, rawStep))));
+  const niceStep = Math.max(1, Math.ceil(rawStep / magnitude) * magnitude);
+  const axisMax = niceStep * ticks;
+
   const yaxis = document.getElementById('graph-yaxis');
   yaxis.innerHTML = '';
-  const ticks = 4;
   for(let i=ticks;i>=0;i--){
-    const v = Math.round(maxVal * i / ticks);
     const lbl = document.createElement('div');
-    lbl.textContent = v;
+    lbl.textContent = Math.round(niceStep * i);
     yaxis.appendChild(lbl);
   }
 
@@ -561,14 +596,14 @@ function renderYearOverview(){
     col.title = `CW ${cwLabel(entry.wk.year, entry.wk.week)} — ${entry.total} topic${entry.total===1?'':'s'}`;
 
     if(overviewMode === 'tasks'){
-      const doneH = Math.round(entry.resolvedCount/maxVal*PLOT_H);
-      const openH = Math.round(entry.openCount/maxVal*PLOT_H);
+      const doneH = Math.round(entry.resolvedCount/axisMax*PLOT_H);
+      const openH = Math.round(entry.openCount/axisMax*PLOT_H);
       col.innerHTML = `
         <div class="gbar open" style="height:${Math.max(entry.openCount?2:0, openH)}px;border-radius:3px 3px 0 0;"></div>
         <div class="gbar done" style="height:${Math.max(entry.resolvedCount?2:0, doneH)}px;border-radius:0 0 0 0;margin-top:1px;"></div>`;
       if(entry.total===0) col.innerHTML = `<div class="gbar open" style="height:2px;opacity:.25;"></div>`;
     } else {
-      const h = Math.round(entry.total/maxVal*PLOT_H);
+      const h = Math.round(entry.total/axisMax*PLOT_H);
       col.innerHTML = `<div class="gbar lt" style="height:${entry.total ? Math.max(2,h) : 2}px;${entry.total?'':'opacity:.2;'}"></div>`;
     }
     grid.appendChild(col);
@@ -592,6 +627,14 @@ document.getElementById('overview-mode').addEventListener('click', (e)=>{
   if(!btn) return;
   overviewMode = btn.dataset.mode;
   document.querySelectorAll('#overview-mode button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderYearOverview();
+});
+
+document.getElementById('overview-range').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-range]');
+  if(!btn) return;
+  overviewRange = btn.dataset.range;
+  document.querySelectorAll('#overview-range button').forEach(b=>b.classList.toggle('active', b===btn));
   renderYearOverview();
 });
 
