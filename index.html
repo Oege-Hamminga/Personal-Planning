@@ -6,21 +6,22 @@
 <title>Personal Planning</title>
 <style>
   :root{
-    --bg:#f4f6f9; --card:#fff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
-    --accent:#2563eb; --high:#dc2626; --normal:#16a34a;
+    --bg:#eef1f6; --card:#fff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
+    --navy:#0f2747; --navy2:#16365f; --accent:#1d6fd6; --high:#dc2626; --normal:#16a34a;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
-  header h1{font-size:20px;margin:0;}
-  nav{display:flex;gap:8px;}
-  nav button{background:none;border:1px solid var(--border);border-radius:6px;padding:8px 16px;cursor:pointer;font-size:14px;}
+  body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;border-bottom:3px solid var(--accent);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:21px;margin:0;font-weight:600;letter-spacing:.3px;}
+  header .sub{font-size:12px;color:#b9c8de;margin-top:2px;letter-spacing:.5px;text-transform:uppercase;}
+  nav{display:flex;gap:6px;}
+  nav button{background:rgba(255,255,255,.08);color:#dbe6f5;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;letter-spacing:.2px;}
   nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   main{max-width:1200px;margin:24px auto;padding:0 24px;}
   .tab{display:none;}
   .tab.active{display:block;}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;}
-  h2{margin-top:0;font-size:18px;}
+  .card{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--navy2);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,39,71,.04);}
+  h2{margin-top:0;font-size:17px;color:var(--navy);font-weight:600;}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;margin-top:10px;}
   input[type=text], input[type=number], select, textarea{
     width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;
@@ -42,6 +43,19 @@
   .badge.dept{background:#fef3c7;color:#92400e;}
   .badge.spec{background:#e5e7eb;color:#374151;}
   .badge.done{background:#d1fae5;color:#065f46;}
+  .badge.oem{background:#dbeafe;color:#1e3a8a;}
+  .badge.lt-active{background:#fef9c3;color:#854d0e;}
+  .week-block.in-period{border-left:3px solid #f59e0b;background:#fffdf5;}
+  .chart{display:flex;align-items:flex-end;gap:10px;height:180px;padding-top:10px;border-bottom:1px solid var(--border);}
+  .chart .bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;height:100%;}
+  .chart .bar{width:60%;border-radius:4px 4px 0 0;min-height:2px;}
+  .chart .bar.resolved{background:#16a34a;}
+  .chart .bar.current{background:var(--accent);}
+  .chart .bar-val{font-size:11px;color:var(--muted);margin-bottom:2px;}
+  .chart-labels{display:flex;gap:10px;margin-top:6px;}
+  .chart-labels span{flex:1;text-align:center;font-size:11px;color:var(--muted);}
+  .chart-legend{display:flex;gap:18px;margin-top:10px;font-size:12px;color:var(--muted);}
+  .chart-legend .dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle;}
   .week-block{margin-bottom:18px;}
   .week-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
   .week-header h3{margin:0;font-size:16px;}
@@ -59,7 +73,7 @@
 </head>
 <body>
 <header>
-  <h1>Personal Planning</h1>
+  <div><h1>Personal Planning</h1><div class="sub">Change Management &amp; Product Portfolio</div></div>
   <nav id="tabs">
     <button data-tab="tasks" class="active">Tasks</button>
     <button data-tab="planning">CW Planning</button>
@@ -100,6 +114,10 @@
           <label>Category</label>
           <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option></select>
         </div>
+        <div>
+          <label>OEM</label>
+          <select id="f-oem"><option>Stellantis</option><option>IVECO</option><option>KIA</option><option>Other</option><option>Multiple</option></select>
+        </div>
       </div>
       <div class="row">
         <div>
@@ -110,8 +128,8 @@
           </select>
         </div>
         <div id="longterm-week-wrap" style="display:none;">
-          <label>Target Calendar Week (e.g. 2026-W30)</label>
-          <input type="text" id="f-targetweek" placeholder="YYYY-Www">
+          <label>End date (when this should be finished)</label>
+          <input type="date" id="f-enddate">
         </div>
       </div>
       <label>Description / notes (optional)</label>
@@ -124,7 +142,7 @@
       <h2>All Tasks</h2>
       <table>
         <thead><tr>
-          <th>Title</th><th>Priority</th><th>Spec</th><th>Dept</th><th>Category</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
+          <th>Title</th><th>Priority</th><th>Spec</th><th>Dept</th><th>Category</th><th>OEM</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="task-table-body"></tbody>
       </table>
@@ -135,8 +153,19 @@
   <!-- PLANNING TAB -->
   <section id="tab-planning" class="tab">
     <div class="card">
+      <h2>Resolved vs. Planned — per Calendar Week</h2>
+      <p class="small">Bars show how many tasks were actually completed in recent weeks, and how many are currently planned for this week.</p>
+      <div class="chart" id="resolved-chart"></div>
+      <div class="chart-labels" id="resolved-chart-labels"></div>
+      <div class="chart-legend">
+        <span><span class="dot" style="background:#16a34a;"></span>Resolved (past weeks)</span>
+        <span><span class="dot" style="background:var(--accent);"></span>Planned (this week)</span>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Calendar Week Overview</h2>
-      <p class="small">Tasks are auto-distributed across weeks starting from the current calendar week, respecting your weekly capacity (set in Settings). Unfinished tasks automatically shift to the next week. Long-term tasks appear in their target week. Mark tasks done to keep planning accurate.</p>
+      <p class="small">Tasks are auto-distributed across weeks starting from the current calendar week, respecting your weekly capacity (set in Settings). Unfinished tasks automatically shift to the next week. Long-term tasks are highlighted across the period from now until their end date.</p>
       <div id="planning-weeks"></div>
     </div>
   </section>
@@ -213,10 +242,11 @@ function nextCW(year, week){
   return week >= wiy ? { year: year+1, week: 1 } : { year, week: week+1 };
 }
 function cwKey(o){ return o.year*100 + o.week; }
-function parseCW(str){
-  const m = /^(\d{4})-W(\d{1,2})$/.exec((str||'').trim());
-  if(!m) return null;
-  return { year: parseInt(m[1],10), week: parseInt(m[2],10) };
+function dateToCW(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr+'T00:00:00');
+  if(isNaN(d)) return null;
+  return isoWeekInfo(d);
 }
 
 // ---------- Planning engine ----------
@@ -238,15 +268,20 @@ function computePlanning(numWeeks){
   const slotIndex = {};
   slots.forEach((s,idx)=> slotIndex[cwKey(s)] = idx);
 
-  // place long-term tasks into their target week if within range, else attach to nearest/last slot
+  // place long-term tasks into their end-date week if within range, else attach to nearest/last slot;
+  // mark every slot in [now .. end date] as part of that task's active highlight period
   longterm.forEach(t=>{
-    const target = parseCW(t.targetWeek);
-    let idx = 0;
-    if(target){
-      const k = cwKey(target);
+    const end = dateToCW(t.endDate);
+    let idx = slots.length - 1;
+    if(end){
+      const k = cwKey(end);
       if(k in slotIndex) idx = slotIndex[k];
       else if(k < cwKey(start)) idx = 0;
       else idx = slots.length-1;
+      for(let i=0;i<=idx;i++){
+        slots[i].highlighted = slots[i].highlighted || [];
+        slots[i].highlighted.push(t);
+      }
     }
     slots[idx].tasks.push(t);
   });
@@ -283,14 +318,15 @@ function renderTaskTable(){
 
   tasks.forEach(t=>{
     const tr = document.createElement('tr');
-    const planned = plannedMap[t.id] || (t.type==='longterm' ? (t.targetWeek||'-') : '-');
+    const planned = plannedMap[t.id] || '-';
     tr.innerHTML = `
       <td>${escapeHtml(t.title)}</td>
       <td><span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span></td>
       <td><span class="badge spec">${t.specification}</span></td>
       <td><span class="badge dept">${t.department}</span></td>
       <td><span class="badge cat">${t.category}</span></td>
-      <td>${t.type==='longterm' ? 'Long-term' : 'Regular'}</td>
+      <td><span class="badge oem">${t.oem||'-'}</span></td>
+      <td>${t.type==='longterm' ? ('Long-term'+(t.endDate?` <span class="small">(due ${t.endDate})</span>`:'')) : 'Regular'}</td>
       <td>${planned}</td>
       <td>${t.done ? '<span class="badge done">Done</span>' : '<span class="small">Open</span>'}</td>
       <td class="actions">
@@ -307,7 +343,7 @@ function renderTaskTable(){
       const act = btn.dataset.act;
       const task = data.tasks.find(x=>x.id===id);
       if(!task) return;
-      if(act==='toggle'){ task.done = !task.done; saveData(); renderAll(); }
+      if(act==='toggle'){ task.done = !task.done; task.completedWeek = task.done ? currentCW() : null; saveData(); renderAll(); }
       else if(act==='delete'){ if(confirm('Delete this task?')){ data.tasks = data.tasks.filter(x=>x.id!==id); data.notes = data.notes.filter(n=>n.taskId!==id); saveData(); renderAll(); } }
       else if(act==='edit'){ loadTaskIntoForm(task); }
     });
@@ -323,8 +359,9 @@ function loadTaskIntoForm(t){
   document.getElementById('f-spec').value = t.specification;
   document.getElementById('f-dept').value = t.department;
   document.getElementById('f-category').value = t.category;
+  document.getElementById('f-oem').value = t.oem || 'Stellantis';
   document.getElementById('f-type').value = t.type;
-  document.getElementById('f-targetweek').value = t.targetWeek || '';
+  document.getElementById('f-enddate').value = t.endDate || '';
   document.getElementById('f-desc').value = t.description || '';
   document.getElementById('longterm-week-wrap').style.display = t.type==='longterm' ? 'block' : 'none';
   document.getElementById('form-title').textContent = 'Edit Task';
@@ -339,8 +376,9 @@ function resetForm(){
   document.getElementById('f-spec').value = 'Internal';
   document.getElementById('f-dept').value = 'R&D';
   document.getElementById('f-category').value = 'CHANGES';
+  document.getElementById('f-oem').value = 'Stellantis';
   document.getElementById('f-type').value = 'regular';
-  document.getElementById('f-targetweek').value = '';
+  document.getElementById('f-enddate').value = '';
   document.getElementById('f-desc').value = '';
   document.getElementById('longterm-week-wrap').style.display = 'none';
   document.getElementById('form-title').textContent = 'Add Task';
@@ -357,9 +395,9 @@ document.getElementById('save-task').addEventListener('click', ()=>{
   const title = document.getElementById('f-title').value.trim();
   if(!title){ alert('Please enter a title.'); return; }
   const type = document.getElementById('f-type').value;
-  const targetWeek = document.getElementById('f-targetweek').value.trim();
-  if(type==='longterm' && targetWeek && !parseCW(targetWeek)){
-    alert('Target week must be in format YYYY-Www, e.g. 2026-W30'); return;
+  const endDate = document.getElementById('f-enddate').value;
+  if(type==='longterm' && !endDate){
+    alert('Please set an end date for the long-term task.'); return;
   }
   const id = document.getElementById('task-id').value;
   const payload = {
@@ -368,8 +406,9 @@ document.getElementById('save-task').addEventListener('click', ()=>{
     specification: document.getElementById('f-spec').value,
     department: document.getElementById('f-dept').value,
     category: document.getElementById('f-category').value,
+    oem: document.getElementById('f-oem').value,
     type,
-    targetWeek: type==='longterm' ? targetWeek : '',
+    endDate: type==='longterm' ? endDate : '',
     description: document.getElementById('f-desc').value.trim(),
   };
   if(id){
@@ -390,13 +429,15 @@ function renderPlanning(){
   const slots = computePlanning(16);
   slots.forEach((slot, idx)=>{
     const block = document.createElement('div');
-    block.className = 'week-block card';
+    const inPeriod = slot.highlighted && slot.highlighted.length;
+    block.className = 'week-block card' + (inPeriod ? ' in-period' : '');
     const over = slot.tasks.length > data.capacity;
     block.innerHTML = `
       <div class="week-header">
         <h3>CW ${slot.label} ${idx===0 ? '<span class="small">(current week)</span>' : ''}</h3>
         <span class="week-count ${over?'over':''}">${slot.tasks.length} / ${data.capacity} topics</span>
       </div>
+      ${inPeriod ? `<p class="small">⏳ Active long-term period: ${slot.highlighted.map(t=>escapeHtml(t.title)+' (due '+t.endDate+')').join(', ')}</p>` : ''}
     `;
     if(slot.tasks.length===0){
       block.innerHTML += '<p class="empty">No tasks planned for this week.</p>';
@@ -410,7 +451,8 @@ function renderPlanning(){
             <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
             <span class="badge dept">${t.department}</span>
             <span class="badge cat">${t.category}</span>
-            ${t.type==='longterm' ? '<span class="badge spec">Long-term</span>' : ''}
+            <span class="badge oem">${t.oem||'-'}</span>
+            ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
           </div>
           <div class="actions">
             <button class="secondary" data-id="${t.id}">${t.done ? 'Reopen' : 'Mark done'}</button>
@@ -423,8 +465,47 @@ function renderPlanning(){
   wrap.querySelectorAll('button[data-id]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const t = data.tasks.find(x=>x.id===btn.dataset.id);
-      if(t){ t.done = !t.done; saveData(); renderAll(); }
+      if(t){ t.done = !t.done; t.completedWeek = t.done ? currentCW() : null; saveData(); renderAll(); }
     });
+  });
+}
+
+// ---------- Resolved vs Planned chart ----------
+function renderResolvedChart(){
+  const PAST_WEEKS = 6;
+  const start = currentCW();
+  // build list of past N weeks + current week (chronological order)
+  const weeks = [];
+  let cur = start;
+  for(let i=0;i<PAST_WEEKS;i++){
+    cur = (cur.week === 1) ? { year: cur.year-1, week: weeksInYear(cur.year-1) } : { year: cur.year, week: cur.week-1 };
+    weeks.unshift(cur);
+  }
+  weeks.push(start);
+
+  const counts = weeks.map(w=>{
+    const k = cwKey(w);
+    if(k === cwKey(start)){
+      const slots = computePlanning(1);
+      return { label: cwLabel(w.year,w.week), value: slots[0].tasks.length, type:'current' };
+    }
+    const resolved = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k).length;
+    return { label: cwLabel(w.year,w.week), value: resolved, type:'resolved' };
+  });
+
+  const max = Math.max(1, ...counts.map(c=>c.value));
+  const chart = document.getElementById('resolved-chart');
+  const labels = document.getElementById('resolved-chart-labels');
+  chart.innerHTML = '';
+  labels.innerHTML = '';
+  counts.forEach(c=>{
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `<span class="bar-val">${c.value}</span><div class="bar ${c.type}" style="height:${Math.max(2, Math.round(c.value/max*150))}px;"></div>`;
+    chart.appendChild(col);
+    const lbl = document.createElement('span');
+    lbl.textContent = c.label.replace(/^\d{4}-/, '');
+    labels.appendChild(lbl);
   });
 }
 
@@ -488,6 +569,7 @@ document.getElementById('tabs').addEventListener('click', (e)=>{
 function renderAll(){
   renderTaskTable();
   renderPlanning();
+  renderResolvedChart();
   renderNotes();
 }
 renderAll();
