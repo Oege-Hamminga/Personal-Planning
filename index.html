@@ -6,25 +6,38 @@
 <title>Personal Planning</title>
 <style>
   :root{
-    --bg:#eef1f6; --card:#fff; --border:#dde3ea; --text:#1f2937; --muted:#6b7280;
-    --navy:#0f2747; --navy2:#16365f; --accent:#1d6fd6; --high:#dc2626; --normal:#16a34a;
+    --bg:#f3f3f3; --card:#fff; --border:#e2e2e2; --text:#1a1a1a; --muted:#6b6b6b;
+    --navy:#1a1a1a; --navy2:#2b2b2b; --accent:#e30613; --accent-dark:#b40510; --high:#e30613; --normal:#1c8a4a;
+    --dark:#1f1f1f; --darker:#161616;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;border-bottom:3px solid var(--accent);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;}
-  header h1{font-size:21px;margin:0;font-weight:600;letter-spacing:.3px;}
-  header .sub{font-size:12px;color:#b9c8de;margin-top:2px;letter-spacing:.5px;text-transform:uppercase;}
+  header{background:#fff;color:var(--text);border-bottom:1px solid var(--border);padding:18px 28px;display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:20px;margin:0;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+  header h1 span{color:var(--accent);}
+  header .sub{font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:2px;text-transform:uppercase;}
   nav{display:flex;gap:6px;}
-  nav button{background:rgba(255,255,255,.08);color:#dbe6f5;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;letter-spacing:.2px;}
-  nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  nav button{background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;border-radius:0;padding:10px 16px;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent);}
   main{max-width:1500px;margin:24px auto;padding:0 24px;}
   .layout{display:flex;gap:20px;align-items:flex-start;}
   .content{flex:1;min-width:0;}
   .sidebar{width:340px;flex-shrink:0;position:sticky;top:24px;}
   .tab{display:none;}
   .tab.active{display:block;}
-  .card{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--navy2);border-radius:6px;padding:16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,39,71,.04);}
-  h2{margin-top:0;font-size:17px;color:var(--navy);font-weight:600;}
+  .hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:34px 28px;margin-bottom:0;}
+  .hero .eyebrow{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.85;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+  .hero .eyebrow::before{content:'';display:inline-block;width:28px;height:1px;background:#fff;opacity:.7;}
+  .hero h2{font-size:32px;margin:0 0 10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#fff;}
+  .hero p{font-size:14px;max-width:620px;opacity:.92;margin:0;line-height:1.5;}
+  .section-tag{display:flex;align-items:baseline;gap:10px;background:var(--dark);color:#fff;padding:14px 18px;margin:0 0 0;border-left:3px solid var(--accent);}
+  .section-tag .num{color:var(--accent);font-size:11px;letter-spacing:2px;font-weight:700;text-transform:uppercase;}
+  .section-tag h2{margin:0;font-size:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#fff;}
+  .section-tag .desc{font-size:12px;color:#aaa;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:0;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .card.tagged{border-top:none;}
+  h2{margin-top:0;font-size:15px;color:var(--text);font-weight:800;letter-spacing:1px;text-transform:uppercase;}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;margin-top:10px;}
   input[type=text], input[type=number], select, textarea{
     width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;
@@ -32,28 +45,30 @@
   textarea{resize:vertical;min-height:60px;}
   .row{display:flex;gap:12px;flex-wrap:wrap;}
   .row > div{flex:1;min-width:180px;}
-  button.primary{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:10px 18px;font-size:14px;cursor:pointer;margin-top:14px;}
-  button.primary:hover{background:#1d4ed8;}
-  button.secondary{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer;}
-  button.danger{color:#dc2626;border-color:#fca5a5;}
+  button.primary{background:var(--accent);color:#fff;border:none;border-radius:0;padding:12px 22px;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:14px;width:100%;}
+  button.primary:hover{background:var(--accent-dark);}
+  button.secondary{background:#fff;border:1px solid #d4d4d4;border-radius:0;padding:6px 14px;font-size:12px;font-weight:600;letter-spacing:.5px;cursor:pointer;color:var(--text);}
+  button.secondary:hover{border-color:var(--text);}
+  button.danger{color:var(--accent);border-color:#f3c2c6;}
   table{width:100%;border-collapse:collapse;font-size:14px;}
   th,td{text-align:left;padding:8px;border-bottom:1px solid var(--border);vertical-align:top;}
   th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;}
-  .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;}
-  .badge.high{background:#fee2e2;color:var(--high);}
-  .badge.normal{background:#dcfce7;color:var(--normal);}
-  .badge.cat{background:#e0e7ff;color:#4338ca;}
-  .badge.dept{background:#fef3c7;color:#92400e;}
-  .badge.spec{background:#e5e7eb;color:#374151;}
-  .badge.done{background:#d1fae5;color:#065f46;}
-  .badge.oem{background:#dbeafe;color:#1e3a8a;}
-  .badge.lt-active{background:#fef9c3;color:#854d0e;}
-  .week-block.in-period{border-left:3px solid #f59e0b;background:#fffdf5;}
+  .badge{display:inline-block;padding:3px 9px;border-radius:0;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+  .badge.high{background:var(--accent);color:#fff;}
+  .badge.normal{background:#e9e9e9;color:#444;}
+  .badge.cat{background:var(--dark);color:#fff;}
+  .badge.dept{background:#f0f0f0;color:#333;border:1px solid #d8d8d8;}
+  .badge.spec{background:#fff;color:#666;border:1px solid #d8d8d8;}
+  .badge.done{background:#1c8a4a;color:#fff;}
+  .badge.oem{background:#fff;color:var(--accent);border:1px solid var(--accent);}
+  .badge.lt-active{background:#fff3cd;color:#8a5a00;border:1px solid #ffe49a;}
+  .badge.duration{background:#fff;color:#444;border:1px solid #d8d8d8;}
+  .week-block.in-period{border-left:3px solid var(--accent);background:#fff6f6;}
   .chart{display:flex;align-items:flex-end;gap:10px;height:180px;padding-top:10px;border-bottom:1px solid var(--border);}
   .chart .bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;height:100%;}
   .chart .bar{width:60%;border-radius:4px 4px 0 0;min-height:2px;}
-  .chart .bar.resolved{background:#16a34a;}
-  .chart .bar.current{background:var(--accent);}
+  .chart .bar.resolved{background:#1c8a4a;}
+  .chart .bar.current{background:var(--dark);}
   .chart .bar-val{font-size:11px;color:var(--muted);margin-bottom:2px;}
   .chart-labels{display:flex;gap:10px;margin-top:6px;}
   .chart-labels span{flex:1;text-align:center;font-size:11px;color:var(--muted);}
@@ -77,19 +92,19 @@
   .yc .wk{font-size:10px;opacity:.85;}
   .yc .n{font-size:13px;}
   .yc.empty{background:#e5e9ef;color:#9aa5b1;}
-  .yc.open{background:#1d6fd6;}
-  .yc.mixed{background:#7c3aed;}
-  .yc.done{background:#16a34a;}
-  .yc.over{box-shadow:inset 0 0 0 2px #dc2626;}
-  .yc.current{border:2px solid #f59e0b;}
-  .yc.selected{outline:3px solid var(--navy);outline-offset:1px;}
+  .yc.open{background:var(--dark);}
+  .yc.mixed{background:var(--accent);}
+  .yc.done{background:#1c8a4a;}
+  .yc.over{box-shadow:inset 0 0 0 2px var(--accent);}
+  .yc.current{border:2px solid var(--accent);}
+  .yc.selected{outline:3px solid var(--text);outline-offset:1px;}
   .yc:hover{filter:brightness(1.12);}
   .legend-row{display:flex;gap:18px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap;}
   .legend-row .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle;}
   .week-detail{margin-top:18px;}
   .view-toggle{display:flex;gap:6px;}
   .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
-  .view-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .view-toggle button.active{background:var(--text);color:#fff;border-color:var(--text);}
   .graph-wrap{display:flex;gap:8px;margin-top:14px;}
   .graph-yaxis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding-bottom:22px;height:220px;font-size:11px;color:var(--muted);width:28px;}
   .graph-plot{flex:1;min-width:0;overflow-x:auto;}
@@ -98,12 +113,12 @@
   .graph-bars::after{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--border);}
   .gbar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;height:100%;min-width:13px;cursor:pointer;}
   .gbar{width:75%;border-radius:3px 3px 0 0;min-height:2px;position:relative;}
-  .gbar.open{background:#1d6fd6;}
-  .gbar.done{background:#16a34a;}
-  .gbar.lt{background:#7c3aed;}
-  .gbar-col.current .gbar{box-shadow:0 0 0 2px #f59e0b;}
-  .gbar-col.over .gbar{box-shadow:0 0 0 2px #dc2626;}
-  .gbar-col.selected .gbar{outline:3px solid var(--navy);outline-offset:1px;}
+  .gbar.open{background:var(--dark);}
+  .gbar.done{background:#1c8a4a;}
+  .gbar.lt{background:var(--accent);}
+  .gbar-col.current .gbar{box-shadow:0 0 0 2px var(--accent);}
+  .gbar-col.over .gbar{box-shadow:0 0 0 2px #8a0008;}
+  .gbar-col.selected .gbar{outline:3px solid var(--text);outline-offset:1px;}
   .gbar-col:hover .gbar{filter:brightness(1.15);}
   .graph-xaxis{display:flex;gap:3px;padding:4px 6px 0 6px;min-width:780px;}
   .graph-xaxis span{flex:1;min-width:13px;text-align:center;font-size:9px;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:50px;}
@@ -111,21 +126,27 @@
 </head>
 <body>
 <header>
-  <div><h1>Personal Planning</h1><div class="sub">Change Management &amp; Product Portfolio</div></div>
+  <div><h1>PERSONAL <span>PLANNING</span></h1><div class="sub">Change Management · Product Portfolio</div></div>
   <nav id="tabs">
-    <button data-tab="overview" class="active">Open Topics Overview</button>
+    <button data-tab="overview" class="active">Open Topics</button>
     <button data-tab="tasks">Tasks</button>
     <button data-tab="notes">Notes</button>
     <button data-tab="settings">Settings</button>
   </nav>
 </header>
+<div class="hero">
+  <div class="eyebrow">Internal Planning Overview</div>
+  <h2 id="hero-title">Open Topics</h2>
+  <p>Track every change, strategy and portfolio topic by calendar week — see what's resolved, what's still open, and what's coming up.</p>
+</div>
 <main>
 <div class="layout">
   <div class="content">
 
   <!-- OVERVIEW TAB (landing page) -->
   <section id="tab-overview" class="tab active">
-    <div class="card">
+    <div class="section-tag"><span class="num">01 — Overview</span><h2>Open Topics</h2><span class="desc">Calendar-week graph of resolved &amp; open topics</span></div>
+    <div class="card tagged">
       <div class="week-header">
         <h2 style="margin:0;">Open Topics — Calendar Week Graph <span id="overview-year-label" class="small"></span></h2>
         <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
@@ -165,11 +186,12 @@
 
   <!-- TASKS TAB -->
   <section id="tab-tasks" class="tab">
-    <div class="card">
+    <div class="section-tag"><span class="num">02 — Register</span><h2>All Tasks</h2><span class="desc">Full list of registered topics</span></div>
+    <div class="card tagged">
       <h2>All Tasks</h2>
       <table>
         <thead><tr>
-          <th>Title</th><th>Priority</th><th>Spec</th><th>Dept</th><th>Category</th><th>OEM</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
+          <th>Title</th><th>Priority</th><th>Spec</th><th>Dept</th><th>Category</th><th>OEM</th><th>Duration</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="task-table-body"></tbody>
       </table>
@@ -179,7 +201,8 @@
 
   <!-- NOTES TAB -->
   <section id="tab-notes" class="tab">
-    <div class="card">
+    <div class="section-tag"><span class="num">03 — Notes</span><h2>Notes</h2><span class="desc">General notes &amp; topic-linked remarks</span></div>
+    <div class="card tagged">
       <h2>Add Note</h2>
       <label>Link to task (optional)</label>
       <select id="note-task"><option value="">— General note —</option></select>
@@ -196,7 +219,8 @@
 
   <!-- SETTINGS TAB -->
   <section id="tab-settings" class="tab">
-    <div class="card">
+    <div class="section-tag"><span class="num">04 — Settings</span><h2>Planning Settings</h2><span class="desc">Configure weekly capacity</span></div>
+    <div class="card tagged">
       <h2>Planning Settings</h2>
       <label>Number of topics to pick up per week</label>
       <select id="capacity-select">
@@ -232,6 +256,13 @@
       <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option></select>
       <label>OEM</label>
       <select id="f-oem"><option>Stellantis</option><option>IVECO</option><option>KIA</option><option>Other</option><option>Multiple</option></select>
+      <label>Estimated duration</label>
+      <div class="row" style="gap:8px;">
+        <div style="flex:1;min-width:0;"><input type="number" id="f-duration" min="0" step="1" placeholder="e.g. 3"></div>
+        <div style="flex:1;min-width:0;">
+          <select id="f-duration-unit"><option value="hours">Hours</option><option value="days" selected>Days</option><option value="weeks">Weeks</option></select>
+        </div>
+      </div>
       <label>Type</label>
       <select id="f-type">
         <option value="regular">Regular task (auto-planned per week)</option>
@@ -380,6 +411,7 @@ function renderTaskTable(){
       <td><span class="badge dept">${t.department}</span></td>
       <td><span class="badge cat">${t.category}</span></td>
       <td><span class="badge oem">${t.oem||'-'}</span></td>
+      <td>${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : '<span class="small">-</span>'}</td>
       <td>${t.type==='longterm' ? ('Long-term'+(t.endDate?` <span class="small">(due ${t.endDate})</span>`:'')) : 'Regular'}</td>
       <td>${planned}</td>
       <td>${t.done ? '<span class="badge done">Done</span>' : '<span class="small">Open</span>'}</td>
@@ -414,6 +446,8 @@ function loadTaskIntoForm(t){
   document.getElementById('f-dept').value = t.department;
   document.getElementById('f-category').value = t.category;
   document.getElementById('f-oem').value = t.oem || 'Stellantis';
+  document.getElementById('f-duration').value = t.duration || '';
+  document.getElementById('f-duration-unit').value = t.durationUnit || 'days';
   document.getElementById('f-type').value = t.type;
   document.getElementById('f-enddate').value = t.endDate || '';
   document.getElementById('f-desc').value = t.description || '';
@@ -431,6 +465,8 @@ function resetForm(){
   document.getElementById('f-dept').value = 'R&D';
   document.getElementById('f-category').value = 'CHANGES';
   document.getElementById('f-oem').value = 'Stellantis';
+  document.getElementById('f-duration').value = '';
+  document.getElementById('f-duration-unit').value = 'days';
   document.getElementById('f-type').value = 'regular';
   document.getElementById('f-enddate').value = '';
   document.getElementById('f-desc').value = '';
@@ -461,6 +497,8 @@ document.getElementById('save-task').addEventListener('click', ()=>{
     department: document.getElementById('f-dept').value,
     category: document.getElementById('f-category').value,
     oem: document.getElementById('f-oem').value,
+    duration: document.getElementById('f-duration').value ? parseInt(document.getElementById('f-duration').value,10) : null,
+    durationUnit: document.getElementById('f-duration-unit').value,
     type,
     endDate: type==='longterm' ? endDate : '',
     description: document.getElementById('f-desc').value.trim(),
@@ -488,6 +526,7 @@ function taskChipHtml(t){
         <span class="badge dept">${t.department}</span>
         <span class="badge cat">${t.category}</span>
         <span class="badge oem">${t.oem||'-'}</span>
+        ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
         ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
       </div>
       <div class="actions">
@@ -770,6 +809,8 @@ document.getElementById('tabs').addEventListener('click', (e)=>{
   btn.classList.add('active');
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  const titles = { overview:'Open Topics', tasks:'Task Register', notes:'Notes', settings:'Settings' };
+  document.getElementById('hero-title').textContent = titles[btn.dataset.tab] || 'Open Topics';
 });
 
 function renderAll(){
