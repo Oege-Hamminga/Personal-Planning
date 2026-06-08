@@ -115,6 +115,24 @@
   .gantt-bar{position:absolute;top:3px;height:20px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;cursor:pointer;}
   .gantt-bar.done{background:linear-gradient(90deg,#1c8a4a,#0c5c30);}
   .gantt-bar .now-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);}
+  .weeks-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px;}
+  .week-col{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;}
+  .week-col-head{background:var(--dark);color:#fff;padding:10px 14px;}
+  .week-col-head .lbl{font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
+  .week-col-head .cnt{font-size:11px;color:#bbb;margin-top:2px;}
+  .week-col-body{padding:10px;max-height:420px;overflow-y:auto;}
+  .wc-item{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;}
+  .wc-item .ttl{font-weight:700;font-size:13px;margin-bottom:4px;}
+  .wc-item .meta{display:flex;gap:5px;flex-wrap:wrap;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;}
+  .modal-overlay.show{display:flex;}
+  .modal{background:#fff;border-radius:8px;padding:24px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto;}
+  .modal h2{margin-top:0;}
+  .review-item{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;}
+  .review-item .ttl{font-weight:700;font-size:13px;}
+  .review-item .opts button{margin-left:6px;}
+  .review-item .opts button.chosen-yes{background:#1c8a4a;color:#fff;border-color:#1c8a4a;}
+  .review-item .opts button.chosen-no{background:var(--accent);color:#fff;border-color:var(--accent);}
   .view-toggle{display:flex;gap:6px;}
   .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
   .view-toggle button.active{background:var(--text);color:#fff;border-color:var(--text);}
@@ -165,18 +183,21 @@
     </div>
 
     <div class="card">
-      <div class="week-header">
-        <h2 style="margin:0;">Weekly Overview <span class="small">resolved vs. planned, recent weeks</span></h2>
-        <div class="view-toggle" id="overview-mode">
-          <button data-mode="tasks" class="active">Tasks</button>
-          <button data-mode="longterm">Long term</button>
-        </div>
-      </div>
-      <div class="chart" id="resolved-chart"></div>
-      <div class="chart-labels" id="resolved-chart-labels"></div>
-      <div class="chart-legend" id="overview-legend"></div>
+      <h2 style="margin:0 0 4px;">Planned for Upcoming Weeks</h2>
+      <p class="small">Topics distributed across the next three calendar weeks based on your weekly capacity.</p>
+      <div class="weeks-cols" id="upcoming-weeks"></div>
     </div>
   </section>
+
+  <!-- WEEK REVIEW POPUP -->
+  <div class="modal-overlay" id="review-overlay">
+    <div class="modal">
+      <h2 id="review-title">Week Review</h2>
+      <p class="small" id="review-sub"></p>
+      <div id="review-list"></div>
+      <button class="primary" id="review-confirm">Confirm &amp; Close</button>
+    </div>
+  </div>
 
   <!-- TASKS TAB -->
   <section id="tab-tasks" class="tab">
@@ -699,79 +720,113 @@ document.getElementById('mytasks-tabs').addEventListener('click', (e)=>{
   renderMyTasks();
 });
 
-// ---------- Dashboard: small weekly graph (Resolved vs Planned / Long-term) ----------
-let overviewMode = 'tasks'; // 'tasks' | 'longterm'
-
-const OVERVIEW_LEGEND = {
-  tasks: `
-    <span><span class="dot" style="background:#1c8a4a;"></span>Resolved (past weeks)</span>
-    <span><span class="dot" style="background:var(--accent);"></span>Planned (this week)</span>`,
-  longterm: `
-    <span><span class="dot" style="background:var(--dark);"></span>Active long-term topics that week</span>`
-};
-
-function renderResolvedChart(){
-  const PAST_WEEKS = 6;
+// ---------- Dashboard: Planned for Upcoming Weeks (3 columns) ----------
+function renderUpcomingWeeks(){
   const start = currentCW();
-  const weeks = [];
-  let cur = start;
-  for(let i=0;i<PAST_WEEKS;i++){
-    cur = prevCW(cur.year, cur.week);
-    weeks.unshift(cur);
-  }
-  for(let i=1;i<=2;i++) weeks.push(addCW(start, i));
-
-  document.getElementById('overview-legend').innerHTML = OVERVIEW_LEGEND[overviewMode];
-
-  let counts;
-  if(overviewMode === 'tasks'){
-    counts = weeks.map(w=>{
-      const k = cwKey(w);
-      if(k >= cwKey(start)){
-        const slots = computePlanning(3);
-        const slot = slots.find(s=>cwKey(s)===k);
-        return { label: cwLabel(w.year,w.week), value: slot ? slot.tasks.filter(t=>!t.done).length : 0, type: k===cwKey(start) ? 'current' : 'planned' };
-      }
-      const resolved = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===k).length;
-      return { label: cwLabel(w.year,w.week), value: resolved, type:'resolved' };
-    });
-  } else {
-    const longterm = data.tasks.filter(t=>t.type==='longterm' && t.endDate);
-    counts = weeks.map(w=>{
-      const k = cwKey(w);
-      const active = longterm.filter(t=>{
-        const end = dateToCW(t.endDate);
-        return end && cwKey(end) >= k && k >= cwKey(start);
-      }).length;
-      return { label: cwLabel(w.year,w.week), value: active, type: k===cwKey(start) ? 'current' : 'lt' };
-    });
-  }
-
-  const max = Math.max(1, ...counts.map(c=>c.value));
-  const chart = document.getElementById('resolved-chart');
-  const labels = document.getElementById('resolved-chart-labels');
-  chart.innerHTML = '';
-  labels.innerHTML = '';
-  counts.forEach(c=>{
-    const col = document.createElement('div');
-    col.className = 'bar-col';
-    const colorCls = c.type==='resolved' ? 'resolved' : (c.type==='current' ? 'current' : (c.type==='lt' ? 'lt2' : 'planned2'));
-    col.innerHTML = `<span class="bar-val">${c.value}</span><div class="bar ${colorCls}" style="height:${Math.max(2, Math.round(c.value/max*150))}px;"></div>`;
-    chart.appendChild(col);
-    const lbl = document.createElement('span');
-    lbl.textContent = c.label.replace(/^\d{4}-/, '');
-    labels.appendChild(lbl);
-  });
+  const slots = computePlanning(3);
+  const wrap = document.getElementById('upcoming-weeks');
+  wrap.innerHTML = slots.map((slot, idx)=>{
+    const items = slot.tasks.map(t=>`
+      <div class="wc-item">
+        <div class="ttl">${escapeHtml(t.title)}</div>
+        <div class="meta">
+          <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
+          <span class="badge dept">${t.department}</span>
+          <span class="badge cat">${t.category}</span>
+          <span class="badge oem">${t.oem||'-'}</span>
+          ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
+        </div>
+      </div>`).join('') || '<p class="empty">No topics planned for this week.</p>';
+    return `
+      <div class="week-col">
+        <div class="week-col-head">
+          <div class="lbl">CW ${slot.label}${idx===0?' · current':''}</div>
+          <div class="cnt">${slot.tasks.length} / ${data.capacity} topics</div>
+        </div>
+        <div class="week-col-body">${items}</div>
+      </div>`;
+  }).join('');
 }
 
-document.getElementById('overview-mode').addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-mode]');
-  if(!btn) return;
-  overviewMode = btn.dataset.mode;
-  document.querySelectorAll('#overview-mode button').forEach(b=>b.classList.toggle('active', b===btn));
-  renderResolvedChart();
-});
+// ---------- Week review pop-up: ask whether tasks planned for a now-past week were completed ----------
+function checkWeekReview(){
+  if(!data.reviewedWeeks) data.reviewedWeeks = [];
+  const start = currentCW();
+  // Determine which open (not-yet-done) regular tasks were planned for past weeks: we approximate
+  // "planned for week W" using the current planning snapshot is impossible retroactively, so instead
+  // we ask about any *open* regular tasks whose original target week (by creation-order distribution
+  // at the time) has now passed. Simplest reliable signal: an open regular task counts as "overdue
+  // for review" once at least one full week has passed since it was created and it's still open,
+  // and we haven't reviewed that week yet.
+  let cur = prevCW(start.year, start.week);
+  for(let i=0;i<8;i++){
+    const k = cwKey(cur);
+    if(data.reviewedWeeks.includes(k)){ cur = prevCW(cur.year, cur.week); continue; }
+    const createdInOrBefore = data.tasks.filter(t=>{
+      if(t.type !== 'regular') return false;
+      const createdCW = isoWeekInfo(new Date(t.createdAt));
+      return cwKey(createdCW) <= k && (!t.done || (t.completedWeek && cwKey(t.completedWeek) > k));
+    });
+    if(createdInOrBefore.length){
+      openReviewModal(cur, createdInOrBefore);
+      return;
+    } else {
+      data.reviewedWeeks.push(k);
+      saveData();
+    }
+    cur = prevCW(cur.year, cur.week);
+  }
+}
 
+let reviewChoices = {};
+function openReviewModal(weekObj, tasks){
+  reviewChoices = {};
+  const overlay = document.getElementById('review-overlay');
+  document.getElementById('review-title').textContent = `Week CW ${cwLabel(weekObj.year, weekObj.week)} has passed`;
+  document.getElementById('review-sub').textContent = 'Please confirm whether each of these topics was completed during that week.';
+  const list = document.getElementById('review-list');
+  list.innerHTML = tasks.map(t=>`
+    <div class="review-item" data-id="${t.id}">
+      <span class="ttl">${escapeHtml(t.title)}</span>
+      <span class="opts">
+        <button class="secondary" data-choice="yes">Completed</button>
+        <button class="secondary" data-choice="no">Not completed</button>
+      </span>
+    </div>`).join('');
+  list.querySelectorAll('.review-item').forEach(row=>{
+    const id = row.dataset.id;
+    row.querySelectorAll('button[data-choice]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        reviewChoices[id] = btn.dataset.choice;
+        row.querySelectorAll('button').forEach(b=>b.classList.remove('chosen-yes','chosen-no'));
+        btn.classList.add(btn.dataset.choice === 'yes' ? 'chosen-yes' : 'chosen-no');
+      });
+    });
+  });
+  overlay.classList.add('show');
+  overlay.dataset.weekKey = cwKey(weekObj);
+  overlay.dataset.weekYear = weekObj.year;
+  overlay.dataset.weekWeek = weekObj.week;
+}
+
+document.getElementById('review-confirm').addEventListener('click', ()=>{
+  const overlay = document.getElementById('review-overlay');
+  const weekObj = { year: parseInt(overlay.dataset.weekYear,10), week: parseInt(overlay.dataset.weekWeek,10) };
+  Object.keys(reviewChoices).forEach(id=>{
+    const t = data.tasks.find(x=>x.id===id);
+    if(!t) return;
+    if(reviewChoices[id] === 'yes'){
+      t.done = true;
+      t.completedWeek = weekObj;
+    }
+  });
+  if(!data.reviewedWeeks) data.reviewedWeeks = [];
+  data.reviewedWeeks.push(cwKey(weekObj));
+  saveData();
+  overlay.classList.remove('show');
+  renderAll();
+  setTimeout(checkWeekReview, 300);
+});
 
 // ---------- Notes ----------
 function renderNotes(){
@@ -837,10 +892,11 @@ function renderAll(){
   renderStatCards();
   renderLongTermGantt();
   renderMyTasks();
-  renderResolvedChart();
+  renderUpcomingWeeks();
   renderNotes();
 }
 renderAll();
+checkWeekReview();
 </script>
 </body>
 </html>
