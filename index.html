@@ -121,9 +121,17 @@
   .week-col-head .lbl{font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}
   .week-col-head .cnt{font-size:11px;color:#bbb;margin-top:2px;}
   .week-col-body{padding:10px;max-height:420px;overflow-y:auto;}
-  .wc-item{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;}
+  .wc-item{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;background:#fff;cursor:grab;}
+  .wc-item:active{cursor:grabbing;}
+  .wc-item.dragging{opacity:.4;}
   .wc-item .ttl{font-weight:700;font-size:13px;margin-bottom:4px;}
   .wc-item .meta{display:flex;gap:5px;flex-wrap:wrap;}
+  .wc-item .progress-track{background:#eee;border-radius:6px;height:5px;overflow:hidden;margin-top:6px;}
+  .wc-item .progress-fill{height:100%;border-radius:6px;background:var(--accent);}
+  .week-col-body.drag-over{background:#fdeceb;outline:2px dashed var(--accent);outline-offset:-4px;}
+  .remaining-col{margin-top:16px;}
+  .remaining-col .week-col-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-height:none;}
+  .remaining-col .wc-item{margin-bottom:0;}
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center;}
   .modal-overlay.show{display:flex;}
   .modal{background:#fff;border-radius:8px;padding:24px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto;}
@@ -184,8 +192,16 @@
 
     <div class="card">
       <h2 style="margin:0 0 4px;">Planned for Upcoming Weeks</h2>
-      <p class="small">Topics distributed across the next three calendar weeks based on your weekly capacity.</p>
+      <p class="small">Topics distributed across the next three calendar weeks based on your weekly capacity. Drag a topic onto another week to reschedule it.</p>
       <div class="weeks-cols" id="upcoming-weeks"></div>
+
+      <div class="week-col remaining-col" id="remaining-tasks-wrap">
+        <div class="week-col-head">
+          <div class="lbl">Remaining — not yet planned</div>
+          <div class="cnt" id="remaining-count">0 topics</div>
+        </div>
+        <div class="week-col-body" id="remaining-tasks"></div>
+      </div>
     </div>
   </section>
 
@@ -283,6 +299,16 @@
         <option value="regular">Regular task (auto-planned per week)</option>
         <option value="longterm">Long-term planning task</option>
       </select>
+      <div id="schedule-wrap">
+        <label>Schedule</label>
+        <select id="f-schedule-mode">
+          <option value="asap" selected>A.S.A.P. (auto-planned)</option>
+          <option value="date">Set a calendar week</option>
+        </select>
+        <div id="schedule-date-wrap" style="display:none;">
+          <input type="date" id="f-schedule-date">
+        </div>
+      </div>
       <div id="longterm-week-wrap" style="display:none;">
         <label>End date (when this should be finished)</label>
         <input type="date" id="f-enddate">
@@ -342,6 +368,13 @@ function addCW(o, n){
   return cur;
 }
 function cwKey(o){ return o.year*100 + o.week; }
+function cwMondayDate(year, week){
+  const jan4 = new Date(Date.UTC(year,0,4));
+  const jan4Day = (jan4.getUTCDay()+6)%7;
+  const week1Monday = new Date(jan4); week1Monday.setUTCDate(jan4.getUTCDate()-jan4Day);
+  const monday = new Date(week1Monday); monday.setUTCDate(week1Monday.getUTCDate() + (week-1)*7);
+  return monday.toISOString().slice(0,10);
+}
 function dateToCW(dateStr){
   if(!dateStr) return null;
   const d = new Date(dateStr+'T00:00:00');
@@ -354,8 +387,7 @@ function dateToCW(dateStr){
 function computePlanning(numWeeks){
   const cap = data.capacity;
   const start = currentCW();
-  const regular = data.tasks.filter(t=>t.type==='regular' && !t.done)
-    .sort((a,b)=> (a.priority===b.priority?0:(a.priority==='High'?-1:1)) || a.createdAt - b.createdAt);
+  const allRegular = data.tasks.filter(t=>t.type==='regular' && !t.done);
   const longterm = data.tasks.filter(t=>t.type==='longterm');
 
   // build week slots
@@ -367,6 +399,21 @@ function computePlanning(numWeeks){
   }
   const slotIndex = {};
   slots.forEach((s,idx)=> slotIndex[cwKey(s)] = idx);
+
+  // tasks pinned to a specific week (manual drag override, or "set a calendar week" schedule) go straight in
+  const placed = new Set();
+  allRegular.forEach(t=>{
+    const target = t.plannedOverride || (t.scheduleMode==='date' ? t.scheduledCW : null);
+    if(target){
+      const k = cwKey(target);
+      if(k in slotIndex){
+        slots[slotIndex[k]].tasks.push(t);
+        placed.add(t.id);
+      }
+    }
+  });
+  const regular = allRegular.filter(t=>!placed.has(t.id))
+    .sort((a,b)=> (a.priority===b.priority?0:(a.priority==='High'?-1:1)) || a.createdAt - b.createdAt);
 
   // place long-term tasks into their end-date week if within range, else attach to nearest/last slot;
   // mark every slot in [now .. end date] as part of that task's active highlight period
@@ -394,10 +441,6 @@ function computePlanning(numWeeks){
       slot.tasks.push(regular[taskPtr]);
       taskPtr++;
     }
-  }
-  // overflow: anything left goes into the final slot (marked overflow)
-  for(;taskPtr<regular.length;taskPtr++){
-    slots[slots.length-1].tasks.push(regular[taskPtr]);
   }
   return slots;
 }
@@ -453,6 +496,17 @@ function renderTaskTable(){
 
 function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
 
+function taskProgressPct(t){
+  if(t.done) return 100;
+  if(t.duration){
+    const unitMs = { hours:3600000, days:86400000, weeks:604800000 }[t.durationUnit||'days'];
+    const totalMs = t.duration * unitMs;
+    const elapsed = Date.now() - t.createdAt;
+    if(totalMs > 0) return Math.max(0, Math.min(99, Math.round(elapsed/totalMs*100)));
+  }
+  return 0;
+}
+
 function loadTaskIntoForm(t){
   document.getElementById('task-id').value = t.id;
   document.getElementById('f-title').value = t.title;
@@ -465,8 +519,13 @@ function loadTaskIntoForm(t){
   document.getElementById('f-duration-unit').value = t.durationUnit || 'days';
   document.getElementById('f-type').value = t.type;
   document.getElementById('f-enddate').value = t.endDate || '';
+  const schedMode = t.scheduleMode || 'asap';
+  document.getElementById('f-schedule-mode').value = schedMode;
+  document.getElementById('f-schedule-date').value = (schedMode==='date' && t.scheduledCW) ? cwMondayDate(t.scheduledCW.year, t.scheduledCW.week) : '';
+  document.getElementById('schedule-date-wrap').style.display = schedMode==='date' ? 'block' : 'none';
   document.getElementById('f-desc').value = t.description || '';
   document.getElementById('longterm-week-wrap').style.display = t.type==='longterm' ? 'block' : 'none';
+  document.getElementById('schedule-wrap').style.display = t.type==='longterm' ? 'none' : 'block';
   document.getElementById('form-title').textContent = 'Edit Task';
   document.getElementById('save-task').textContent = 'Save Changes';
   document.getElementById('cancel-edit').style.display = 'inline-block';
@@ -484,15 +543,24 @@ function resetForm(){
   document.getElementById('f-duration-unit').value = 'days';
   document.getElementById('f-type').value = 'regular';
   document.getElementById('f-enddate').value = '';
+  document.getElementById('f-schedule-mode').value = 'asap';
+  document.getElementById('f-schedule-date').value = '';
+  document.getElementById('schedule-date-wrap').style.display = 'none';
   document.getElementById('f-desc').value = '';
   document.getElementById('longterm-week-wrap').style.display = 'none';
+  document.getElementById('schedule-wrap').style.display = 'block';
   document.getElementById('form-title').textContent = 'Add Task';
   document.getElementById('save-task').textContent = 'Add Task';
   document.getElementById('cancel-edit').style.display = 'none';
 }
 
 document.getElementById('f-type').addEventListener('change', (e)=>{
-  document.getElementById('longterm-week-wrap').style.display = e.target.value==='longterm' ? 'block' : 'none';
+  const isLongterm = e.target.value==='longterm';
+  document.getElementById('longterm-week-wrap').style.display = isLongterm ? 'block' : 'none';
+  document.getElementById('schedule-wrap').style.display = isLongterm ? 'none' : 'block';
+});
+document.getElementById('f-schedule-mode').addEventListener('change', (e)=>{
+  document.getElementById('schedule-date-wrap').style.display = e.target.value==='date' ? 'block' : 'none';
 });
 document.getElementById('cancel-edit').addEventListener('click', resetForm);
 
@@ -503,6 +571,11 @@ document.getElementById('save-task').addEventListener('click', ()=>{
   const endDate = document.getElementById('f-enddate').value;
   if(type==='longterm' && !endDate){
     alert('Please set an end date for the long-term task.'); return;
+  }
+  const scheduleMode = document.getElementById('f-schedule-mode').value;
+  const scheduleDate = document.getElementById('f-schedule-date').value;
+  if(type==='regular' && scheduleMode==='date' && !scheduleDate){
+    alert('Please pick a calendar week date, or switch to A.S.A.P.'); return;
   }
   const id = document.getElementById('task-id').value;
   const payload = {
@@ -517,12 +590,15 @@ document.getElementById('save-task').addEventListener('click', ()=>{
     type,
     endDate: type==='longterm' ? endDate : '',
     description: document.getElementById('f-desc').value.trim(),
+    scheduleMode: type==='regular' ? scheduleMode : null,
+    scheduledCW: type==='regular' && scheduleMode==='date' ? dateToCW(scheduleDate) : null,
   };
   if(id){
     const t = data.tasks.find(x=>x.id===id);
     Object.assign(t, payload);
+    t.plannedOverride = null;
   } else {
-    data.tasks.push(Object.assign({ id: 't'+Date.now()+Math.random().toString(36).slice(2,7), done:false, createdAt: Date.now() }, payload));
+    data.tasks.push(Object.assign({ id: 't'+Date.now()+Math.random().toString(36).slice(2,7), done:false, createdAt: Date.now(), plannedOverride: null }, payload));
   }
   saveData();
   resetForm();
@@ -721,31 +797,82 @@ document.getElementById('mytasks-tabs').addEventListener('click', (e)=>{
 });
 
 // ---------- Dashboard: Planned for Upcoming Weeks (3 columns) ----------
+function wcItemHtml(t){
+  const pct = taskProgressPct(t);
+  return `
+    <div class="wc-item" draggable="true" data-id="${t.id}">
+      <div class="ttl">${escapeHtml(t.title)}</div>
+      <div class="meta">
+        <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
+        <span class="badge dept">${t.department}</span>
+        <span class="badge cat">${t.category} · ${t.oem||'-'}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
+    </div>`;
+}
+
 function renderUpcomingWeeks(){
-  const start = currentCW();
   const slots = computePlanning(3);
+  const plannedIds = new Set();
+  slots.forEach(s=> s.tasks.forEach(t=> plannedIds.add(t.id)));
   const wrap = document.getElementById('upcoming-weeks');
   wrap.innerHTML = slots.map((slot, idx)=>{
-    const items = slot.tasks.map(t=>`
-      <div class="wc-item">
-        <div class="ttl">${escapeHtml(t.title)}</div>
-        <div class="meta">
-          <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
-          <span class="badge dept">${t.department}</span>
-          <span class="badge cat">${t.category}</span>
-          <span class="badge oem">${t.oem||'-'}</span>
-          ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
-        </div>
-      </div>`).join('') || '<p class="empty">No topics planned for this week.</p>';
+    const items = slot.tasks.map(wcItemHtml).join('') || '<p class="empty">No topics planned for this week.</p>';
     return `
-      <div class="week-col">
+      <div class="week-col" data-cw-year="${slot.year}" data-cw-week="${slot.week}">
         <div class="week-col-head">
           <div class="lbl">CW ${slot.label}${idx===0?' · current':''}</div>
           <div class="cnt">${slot.tasks.length} / ${data.capacity} topics</div>
         </div>
-        <div class="week-col-body">${items}</div>
+        <div class="week-col-body" data-drop="week"></div>
       </div>`;
   }).join('');
+  wrap.querySelectorAll('.week-col').forEach((col, idx)=>{
+    col.querySelector('.week-col-body').innerHTML = slots[idx].tasks.map(wcItemHtml).join('') || '<p class="empty">No topics planned for this week.</p>';
+  });
+
+  const remaining = data.tasks.filter(t=> t.type==='regular' && !t.done && !plannedIds.has(t.id));
+  const remWrap = document.getElementById('remaining-tasks');
+  remWrap.innerHTML = remaining.map(wcItemHtml).join('') || '<p class="empty">No remaining unplanned topics.</p>';
+  document.getElementById('remaining-count').textContent = remaining.length + ' topic' + (remaining.length===1?'':'s');
+
+  setupDragAndDrop();
+}
+
+function setupDragAndDrop(){
+  const items = document.querySelectorAll('#upcoming-weeks .wc-item, #remaining-tasks .wc-item');
+  const dropZones = document.querySelectorAll('#upcoming-weeks .week-col-body, #remaining-tasks');
+
+  items.forEach(item=>{
+    item.addEventListener('dragstart', (e)=>{
+      e.dataTransfer.setData('text/plain', item.dataset.id);
+      e.dataTransfer.effectAllowed = 'move';
+      item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', ()=> item.classList.remove('dragging'));
+  });
+
+  dropZones.forEach(zone=>{
+    zone.addEventListener('dragover', (e)=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=> zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      const t = data.tasks.find(x=>x.id===id);
+      if(!t) return;
+      const col = zone.closest('.week-col');
+      if(col){
+        t.plannedOverride = { year: parseInt(col.dataset.cwYear,10), week: parseInt(col.dataset.cwWeek,10) };
+      } else {
+        t.plannedOverride = null;
+        t.scheduleMode = 'asap';
+        t.scheduledCW = null;
+      }
+      saveData();
+      renderAll();
+    });
+  });
 }
 
 // ---------- Week review pop-up: ask whether tasks planned for a now-past week were completed ----------
