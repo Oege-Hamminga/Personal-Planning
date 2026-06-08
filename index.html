@@ -97,19 +97,14 @@
   .stat-card.c1{background:linear-gradient(135deg,#ff7a45,#e30613);}
   .stat-card.c2{background:linear-gradient(135deg,#3a3a3a,#1a1a1a);}
   .stat-card.c3{background:linear-gradient(135deg,#1c8a4a,#0c5c30);}
-  .mt-item{display:flex;align-items:center;gap:14px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff;}
-  .mt-item .icon{width:38px;height:38px;border-radius:8px;background:var(--dark);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
-  .mt-item .body{flex:1;min-width:0;}
-  .mt-item .ttl{font-weight:700;font-size:14px;margin-bottom:2px;}
-  .mt-item .meta{font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-  .mt-item .progress-track{background:#eee;border-radius:6px;height:6px;width:140px;overflow:hidden;margin-top:6px;}
-  .mt-item .progress-fill{height:100%;border-radius:6px;background:var(--accent);}
-  .mt-item.done .progress-fill{background:#1c8a4a;}
-  .mt-item .pct{font-size:11px;color:var(--muted);margin-left:6px;}
   .gantt-wrap{margin-top:14px;}
   .gantt-axis{display:flex;margin-left:200px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:8px;}
   .gantt-axis span{flex:1;font-size:10px;color:var(--muted);text-align:left;white-space:nowrap;overflow:hidden;}
-  .gantt-row{display:flex;align-items:center;gap:0;margin-bottom:10px;}
+  .gantt-row-wrap{margin-bottom:10px;}
+  .gantt-row{display:flex;align-items:center;gap:0;}
+  .gantt-sub-row{display:flex;align-items:center;gap:0;margin-top:2px;}
+  .gantt-track-sub{flex:1;position:relative;height:auto;}
+  .gantt-sub{font-size:11px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .gantt-label{width:200px;flex-shrink:0;font-size:13px;font-weight:600;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .gantt-track{flex:1;position:relative;height:26px;background:#f3f3f3;border-radius:4px;}
   .gantt-bar{position:absolute;top:3px;height:20px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;cursor:pointer;}
@@ -148,7 +143,7 @@
 </head>
 <body>
 <header>
-  <div><h1>PERSONAL <span>PLANNING</span></h1><div class="sub">Change Management · Product Portfolio</div></div>
+  <div><h1>PERSONAL <span>PLANNING</span></h1><div class="sub">Product Management</div></div>
   <nav id="tabs">
     <button data-tab="overview" class="active">Open Topics</button>
     <button data-tab="tasks">Tasks</button>
@@ -169,27 +164,6 @@
   <section id="tab-overview" class="tab active">
     <div class="stat-row" id="stat-row"></div>
 
-    <div class="card tagged" style="border-top:none;">
-      <div class="week-header">
-        <h2 style="margin:0;">My Tasks</h2>
-        <div class="view-toggle" id="mytasks-tabs">
-          <button data-filter="open" class="active">Open</button>
-          <button data-filter="week">This week</button>
-          <button data-filter="longterm">Long term</button>
-          <button data-filter="done">Completed</button>
-        </div>
-      </div>
-      <div id="mytasks-list"></div>
-      <p class="empty" id="mytasks-empty" style="display:none;">Nothing here — use the panel on the right to add a topic.</p>
-    </div>
-
-    <div class="card">
-      <h2 style="margin:0 0 4px;">Long-term Projects — CW Timeline</h2>
-      <p class="small">Each bar starts at the calendar week the project was created and runs until its resolution (end date) week.</p>
-      <div class="gantt-wrap" id="lt-gantt"></div>
-      <p class="empty" id="lt-gantt-empty" style="display:none;">No long-term projects yet — add one via the panel on the right.</p>
-    </div>
-
     <div class="card">
       <h2 style="margin:0 0 4px;">Planned for Upcoming Weeks</h2>
       <p class="small">Topics distributed across the next three calendar weeks based on your weekly capacity. Drag a topic onto another week to reschedule it.</p>
@@ -203,6 +177,13 @@
         <div class="week-col-body" id="remaining-tasks"></div>
       </div>
     </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 4px;">Long-term Projects — CW Timeline</h2>
+      <p class="small">Each bar starts at the calendar week the project was created and runs until its resolution (end date) week.</p>
+      <div class="gantt-wrap" id="lt-gantt"></div>
+      <p class="empty" id="lt-gantt-empty" style="display:none;">No long-term projects yet — add one via the panel on the right.</p>
+    </div>
   </section>
 
   <!-- WEEK REVIEW POPUP -->
@@ -212,6 +193,23 @@
       <p class="small" id="review-sub"></p>
       <div id="review-list"></div>
       <button class="primary" id="review-confirm">Confirm &amp; Close</button>
+    </div>
+  </div>
+
+  <!-- TASK DETAIL POPUP -->
+  <div class="modal-overlay" id="task-detail-overlay">
+    <div class="modal">
+      <h2 id="td-title">Task</h2>
+      <div class="meta" id="td-meta" style="margin:8px 0 14px;display:flex;gap:6px;flex-wrap:wrap;"></div>
+      <div class="progress-track"><div class="progress-fill" id="td-progress" style="width:0%;"></div></div>
+      <p class="small" id="td-progress-label" style="margin-top:6px;"></p>
+      <h3 style="margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;">Details</h3>
+      <p id="td-desc" style="font-size:13px;line-height:1.5;white-space:pre-wrap;"></p>
+      <div style="display:flex;gap:10px;margin-top:18px;">
+        <button class="primary" id="td-toggle-done">Mark done</button>
+        <button class="secondary" id="td-edit">Edit</button>
+        <button class="secondary" id="td-close">Close</button>
+      </div>
     </div>
   </div>
 
@@ -698,15 +696,19 @@ function renderLongTermGantt(){
       const nowLeft = ((nowIdx - startIdx + 0.5) / (endIdx - startIdx + 1)) * 100;
       nowMarker = `<span class="now-marker" style="left:${nowLeft}%;" title="Current week"></span>`;
     }
+    const sub = t.description ? `<div class="gantt-sub" style="margin-left:${left}%;width:${width}%;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</div>` : '';
     return `
-      <div class="gantt-row">
-        <div class="gantt-label" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
-        <div class="gantt-track">
-          <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="${escapeHtml(t.title)} — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
-            ${cwLabel(p.startCW.year,p.startCW.week)} → ${cwLabel(p.endCW.year,p.endCW.week)}
-            ${nowMarker}
+      <div class="gantt-row-wrap">
+        <div class="gantt-row">
+          <div class="gantt-label" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
+          <div class="gantt-track">
+            <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="${escapeHtml(t.title)} — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
+              ${cwLabel(p.startCW.year,p.startCW.week)} → ${cwLabel(p.endCW.year,p.endCW.week)}
+              ${nowMarker}
+            </div>
           </div>
         </div>
+        ${sub ? `<div class="gantt-sub-row"><div class="gantt-label"></div><div class="gantt-track-sub">${sub}</div></div>` : ''}
       </div>`;
   }).join('');
 
@@ -719,82 +721,6 @@ function renderLongTermGantt(){
   });
 }
 
-// ---------- Dashboard: My Tasks list ----------
-let myTasksFilter = 'open';
-
-function renderMyTasks(){
-  const start = currentCW();
-  const slots = computePlanning(2);
-  const thisWeekIds = new Set(slots[0] ? slots[0].tasks.map(t=>t.id) : []);
-
-  let list;
-  if(myTasksFilter === 'open') list = data.tasks.filter(t=>!t.done && t.type==='regular');
-  else if(myTasksFilter === 'week') list = data.tasks.filter(t=> thisWeekIds.has(t.id));
-  else if(myTasksFilter === 'longterm') list = data.tasks.filter(t=>t.type==='longterm');
-  else list = data.tasks.filter(t=>t.done);
-
-  list = [...list].sort((a,b)=> b.createdAt - a.createdAt);
-
-  const wrap = document.getElementById('mytasks-list');
-  document.getElementById('mytasks-empty').style.display = list.length ? 'none' : 'block';
-  wrap.innerHTML = list.map(t=>{
-    let pct = t.done ? 100 : 0;
-    let pctLabel = t.done ? 'Done' : 'Open';
-    if(!t.done && t.type==='longterm' && t.endDate){
-      const end = new Date(t.endDate+'T00:00:00');
-      const created = new Date(t.createdAt);
-      const totalSpan = end - created;
-      const elapsed = Date.now() - created;
-      if(totalSpan > 0){
-        pct = Math.max(0, Math.min(99, Math.round(elapsed/totalSpan*100)));
-        pctLabel = pct + '% of period elapsed';
-      }
-    }
-    const initials = t.title.split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
-    return `
-      <div class="mt-item${t.done?' done':''}">
-        <div class="icon">${initials||'?'}</div>
-        <div class="body">
-          <div class="ttl">${escapeHtml(t.title)}</div>
-          <div class="meta">
-            <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
-            <span class="badge dept">${t.department}</span>
-            <span class="badge cat">${t.category}</span>
-            <span class="badge oem">${t.oem||'-'}</span>
-            ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
-            ${t.type==='longterm' ? '<span class="badge lt-active">due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
-          </div>
-          <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
-        </div>
-        <div class="pct">${pctLabel}</div>
-        <div class="actions">
-          <button class="secondary" data-id="${t.id}">${t.done ? 'Reopen' : 'Mark done'}</button>
-          <button class="secondary" data-edit="${t.id}">Edit</button>
-        </div>
-      </div>`;
-  }).join('');
-
-  wrap.querySelectorAll('button[data-id]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const t = data.tasks.find(x=>x.id===btn.dataset.id);
-      if(t){ t.done = !t.done; t.completedWeek = t.done ? currentCW() : null; saveData(); renderAll(); }
-    });
-  });
-  wrap.querySelectorAll('button[data-edit]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const t = data.tasks.find(x=>x.id===btn.dataset.edit);
-      if(t){ document.querySelector('#tabs button[data-tab="overview"]'); loadTaskIntoForm(t); }
-    });
-  });
-}
-
-document.getElementById('mytasks-tabs').addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-filter]');
-  if(!btn) return;
-  myTasksFilter = btn.dataset.filter;
-  document.querySelectorAll('#mytasks-tabs button').forEach(b=>b.classList.toggle('active', b===btn));
-  renderMyTasks();
-});
 
 // ---------- Dashboard: Planned for Upcoming Weeks (3 columns) ----------
 function wcItemHtml(t){
@@ -803,13 +729,48 @@ function wcItemHtml(t){
     <div class="wc-item" draggable="true" data-id="${t.id}">
       <div class="ttl">${escapeHtml(t.title)}</div>
       <div class="meta">
-        <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
         <span class="badge dept">${t.department}</span>
-        <span class="badge cat">${t.category} · ${t.oem||'-'}</span>
+        <span class="badge ${t.done?'done':'normal'}">${t.done ? 'Completed' : 'To do'}</span>
+        <span class="badge cat">${t.category}</span>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
     </div>`;
 }
+
+function openTaskDetail(t){
+  if(!t) return;
+  document.getElementById('td-title').textContent = t.title;
+  document.getElementById('td-meta').innerHTML = `
+    <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
+    <span class="badge dept">${t.department}</span>
+    <span class="badge cat">${t.category}</span>
+    <span class="badge oem">${t.oem||'-'}</span>
+    <span class="badge spec">${t.specification}</span>
+    <span class="badge ${t.done?'done':'normal'}">${t.done ? 'Completed' : 'To do'}</span>
+    ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
+    ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}`;
+  const pct = taskProgressPct(t);
+  document.getElementById('td-progress').style.width = pct + '%';
+  document.getElementById('td-progress-label').textContent = t.done ? 'Completed' : (pct + '% progress');
+  document.getElementById('td-desc').textContent = t.description ? t.description : 'No additional explanation provided for this topic.';
+  document.getElementById('td-toggle-done').textContent = t.done ? 'Reopen' : 'Mark done';
+  const overlay = document.getElementById('task-detail-overlay');
+  overlay.dataset.id = t.id;
+  overlay.classList.add('show');
+}
+document.getElementById('td-close').addEventListener('click', ()=>{
+  document.getElementById('task-detail-overlay').classList.remove('show');
+});
+document.getElementById('td-toggle-done').addEventListener('click', ()=>{
+  const overlay = document.getElementById('task-detail-overlay');
+  const t = data.tasks.find(x=>x.id===overlay.dataset.id);
+  if(t){ t.done = !t.done; t.completedWeek = t.done ? currentCW() : null; saveData(); overlay.classList.remove('show'); renderAll(); }
+});
+document.getElementById('td-edit').addEventListener('click', ()=>{
+  const overlay = document.getElementById('task-detail-overlay');
+  const t = data.tasks.find(x=>x.id===overlay.dataset.id);
+  if(t){ overlay.classList.remove('show'); loadTaskIntoForm(t); }
+});
 
 function renderUpcomingWeeks(){
   const slots = computePlanning(3);
@@ -850,6 +811,14 @@ function setupDragAndDrop(){
       item.classList.add('dragging');
     });
     item.addEventListener('dragend', ()=> item.classList.remove('dragging'));
+    let dragMoved = false;
+    item.addEventListener('dragstart', ()=>{ dragMoved = false; });
+    item.addEventListener('drag', ()=>{ dragMoved = true; });
+    item.addEventListener('click', ()=>{
+      if(dragMoved) return;
+      const t = data.tasks.find(x=>x.id===item.dataset.id);
+      openTaskDetail(t);
+    });
   });
 
   dropZones.forEach(zone=>{
@@ -1018,7 +987,6 @@ function renderAll(){
   renderTaskTable();
   renderStatCards();
   renderLongTermGantt();
-  renderMyTasks();
   renderUpcomingWeeks();
   renderNotes();
 }
