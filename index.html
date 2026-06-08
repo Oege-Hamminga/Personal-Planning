@@ -119,10 +119,22 @@
   .wc-item{border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:12px;background:#fff;cursor:grab;}
   .wc-item:active{cursor:grabbing;}
   .wc-item.dragging{opacity:.4;}
-  .wc-item .ttl{font-weight:700;font-size:13px;margin-bottom:4px;}
-  .wc-item .meta{display:flex;gap:5px;flex-wrap:wrap;}
-  .wc-item .progress-track{background:#eee;border-radius:6px;height:5px;overflow:hidden;margin-top:6px;}
-  .wc-item .progress-fill{height:100%;border-radius:6px;background:var(--accent);}
+  .wc-item .ttl{font-weight:700;font-size:13px;margin-bottom:6px;}
+  .progress-row{display:flex;align-items:center;gap:8px;}
+  .progress-track{flex:1;background:#eee;border-radius:6px;height:8px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .25s ease;}
+  .progress-fill.done{background:#1c8a4a;}
+  .progress-fill.mid{background:#e08e1a;}
+  .progress-pct{font-size:11px;font-weight:700;color:var(--muted);min-width:32px;text-align:right;}
+  .subtask-list{list-style:none;margin:8px 0 0;padding:0;}
+  .subtask-list li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .subtask-list li:last-child{border-bottom:none;}
+  .subtask-list li.done span.lbl{text-decoration:line-through;color:var(--muted);}
+  .subtask-list li button{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;}
+  .subtask-list li button:hover{color:var(--accent);}
+  .gantt-subtasks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+  .gantt-subtasks .st-chip{font-size:10px;border:1px solid var(--border);border-radius:10px;padding:2px 8px;cursor:pointer;color:var(--muted);background:#fff;}
+  .gantt-subtasks .st-chip.done{background:#1c8a4a;color:#fff;border-color:#1c8a4a;text-decoration:line-through;}
   .week-col-body.drag-over{background:#fdeceb;outline:2px dashed var(--accent);outline-offset:-4px;}
   .remaining-col{margin-top:16px;}
   .remaining-col .week-col-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-height:none;}
@@ -201,7 +213,10 @@
     <div class="modal">
       <h2 id="td-title">Task</h2>
       <div class="meta" id="td-meta" style="margin:8px 0 14px;display:flex;gap:6px;flex-wrap:wrap;"></div>
-      <div class="progress-track"><div class="progress-fill" id="td-progress" style="width:0%;"></div></div>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill" id="td-progress" style="width:0%;"></div></div>
+        <div class="progress-pct" id="td-progress-pct"></div>
+      </div>
       <p class="small" id="td-progress-label" style="margin-top:6px;"></p>
       <h3 style="margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;">Details</h3>
       <p id="td-desc" style="font-size:13px;line-height:1.5;white-space:pre-wrap;"></p>
@@ -310,6 +325,12 @@
       <div id="longterm-week-wrap" style="display:none;">
         <label>End date (when this should be finished)</label>
         <input type="date" id="f-enddate">
+        <label>Subtasks</label>
+        <div class="row" style="gap:8px;">
+          <div style="flex:1;min-width:0;"><input type="text" id="f-subtask-input" placeholder="Add a subtask..."></div>
+          <button class="secondary" id="f-subtask-add" type="button" style="width:auto;">Add</button>
+        </div>
+        <ul id="f-subtask-list" class="subtask-list"></ul>
       </div>
       <label>Description / notes (optional)</label>
       <textarea id="f-desc" placeholder="Details about this task..."></textarea>
@@ -496,6 +517,10 @@ function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s
 
 function taskProgressPct(t){
   if(t.done) return 100;
+  if(t.subtasks && t.subtasks.length){
+    const doneCount = t.subtasks.filter(s=>s.done).length;
+    return Math.round(doneCount / t.subtasks.length * 100);
+  }
   if(t.duration){
     const unitMs = { hours:3600000, days:86400000, weeks:604800000 }[t.durationUnit||'days'];
     const totalMs = t.duration * unitMs;
@@ -504,6 +529,31 @@ function taskProgressPct(t){
   }
   return 0;
 }
+
+let formSubtasks = [];
+function renderSubtaskFormList(){
+  const list = document.getElementById('f-subtask-list');
+  list.innerHTML = formSubtasks.map((s,i)=>`
+    <li class="${s.done?'done':''}">
+      <input type="checkbox" data-idx="${i}" class="st-toggle" ${s.done?'checked':''}>
+      <span class="lbl">${escapeHtml(s.title)}</span>
+      <button type="button" data-idx="${i}" class="st-remove" title="Remove">&times;</button>
+    </li>`).join('');
+  list.querySelectorAll('.st-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ formSubtasks[parseInt(cb.dataset.idx,10)].done = cb.checked; renderSubtaskFormList(); });
+  });
+  list.querySelectorAll('.st-remove').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ formSubtasks.splice(parseInt(btn.dataset.idx,10),1); renderSubtaskFormList(); });
+  });
+}
+document.getElementById('f-subtask-add').addEventListener('click', ()=>{
+  const input = document.getElementById('f-subtask-input');
+  const title = input.value.trim();
+  if(!title) return;
+  formSubtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false });
+  input.value = '';
+  renderSubtaskFormList();
+});
 
 function loadTaskIntoForm(t){
   document.getElementById('task-id').value = t.id;
@@ -524,6 +574,8 @@ function loadTaskIntoForm(t){
   document.getElementById('f-desc').value = t.description || '';
   document.getElementById('longterm-week-wrap').style.display = t.type==='longterm' ? 'block' : 'none';
   document.getElementById('schedule-wrap').style.display = t.type==='longterm' ? 'none' : 'block';
+  formSubtasks = (t.subtasks || []).map(s=>({...s}));
+  renderSubtaskFormList();
   document.getElementById('form-title').textContent = 'Edit Task';
   document.getElementById('save-task').textContent = 'Save Changes';
   document.getElementById('cancel-edit').style.display = 'inline-block';
@@ -547,6 +599,9 @@ function resetForm(){
   document.getElementById('f-desc').value = '';
   document.getElementById('longterm-week-wrap').style.display = 'none';
   document.getElementById('schedule-wrap').style.display = 'block';
+  formSubtasks = [];
+  document.getElementById('f-subtask-input').value = '';
+  renderSubtaskFormList();
   document.getElementById('form-title').textContent = 'Add Task';
   document.getElementById('save-task').textContent = 'Add Task';
   document.getElementById('cancel-edit').style.display = 'none';
@@ -590,6 +645,7 @@ document.getElementById('save-task').addEventListener('click', ()=>{
     description: document.getElementById('f-desc').value.trim(),
     scheduleMode: type==='regular' ? scheduleMode : null,
     scheduledCW: type==='regular' && scheduleMode==='date' ? dateToCW(scheduleDate) : null,
+    subtasks: type==='longterm' ? formSubtasks.map(s=>({...s})) : [],
   };
   if(id){
     const t = data.tasks.find(x=>x.id===id);
@@ -697,6 +753,8 @@ function renderLongTermGantt(){
       nowMarker = `<span class="now-marker" style="left:${nowLeft}%;" title="Current week"></span>`;
     }
     const sub = t.description ? `<div class="gantt-sub" style="margin-left:${left}%;width:${width}%;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</div>` : '';
+    const subtasks = (t.subtasks && t.subtasks.length) ? `<div class="gantt-subtasks" style="margin-left:${left}%;width:${width}%;">${t.subtasks.map(s=>
+      `<span class="st-chip${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}" title="Click to toggle">${escapeHtml(s.title)}</span>`).join('')}</div>` : '';
     return `
       <div class="gantt-row-wrap">
         <div class="gantt-row">
@@ -709,6 +767,7 @@ function renderLongTermGantt(){
           </div>
         </div>
         ${sub ? `<div class="gantt-sub-row"><div class="gantt-label"></div><div class="gantt-track-sub">${sub}</div></div>` : ''}
+        ${subtasks ? `<div class="gantt-sub-row"><div class="gantt-label"></div><div class="gantt-track-sub">${subtasks}</div></div>` : ''}
       </div>`;
   }).join('');
 
@@ -719,21 +778,33 @@ function renderLongTermGantt(){
       if(t) loadTaskIntoForm(t);
     });
   });
+  wrap.querySelectorAll('.st-chip').forEach(chip=>{
+    chip.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const t = data.tasks.find(x=>x.id===chip.dataset.task);
+      if(!t || !t.subtasks) return;
+      const s = t.subtasks.find(x=>x.id===chip.dataset.subtask);
+      if(!s) return;
+      s.done = !s.done;
+      saveData();
+      renderLongTermGantt();
+    });
+  });
 }
 
 
 // ---------- Dashboard: Planned for Upcoming Weeks (3 columns) ----------
 function wcItemHtml(t){
   const pct = taskProgressPct(t);
+  const fillClass = t.done ? 'done' : (pct >= 50 ? 'mid' : '');
+  const pctLabel = t.done ? 'Done' : (pct + '%');
   return `
     <div class="wc-item" draggable="true" data-id="${t.id}">
       <div class="ttl">${escapeHtml(t.title)}</div>
-      <div class="meta">
-        <span class="badge dept">${t.department}</span>
-        <span class="badge ${t.done?'done':'normal'}">${t.done ? 'Completed' : 'To do'}</span>
-        <span class="badge cat">${t.category}</span>
+      <div class="progress-row">
+        <div class="progress-track"><div class="progress-fill ${fillClass}" style="width:${pct}%;"></div></div>
+        <div class="progress-pct">${pctLabel}</div>
       </div>
-      <div class="progress-track"><div class="progress-fill" style="width:${pct}%;"></div></div>
     </div>`;
 }
 
@@ -750,7 +821,10 @@ function openTaskDetail(t){
     ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
     ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}`;
   const pct = taskProgressPct(t);
-  document.getElementById('td-progress').style.width = pct + '%';
+  const fillEl = document.getElementById('td-progress');
+  fillEl.style.width = pct + '%';
+  fillEl.className = 'progress-fill' + (t.done ? ' done' : (pct >= 50 ? ' mid' : ''));
+  document.getElementById('td-progress-pct').textContent = t.done ? 'Done' : (pct + '%');
   document.getElementById('td-progress-label').textContent = t.done ? 'Completed' : (pct + '% progress');
   document.getElementById('td-desc').textContent = t.description ? t.description : 'No additional explanation provided for this topic.';
   document.getElementById('td-toggle-done').textContent = t.done ? 'Reopen' : 'Mark done';
