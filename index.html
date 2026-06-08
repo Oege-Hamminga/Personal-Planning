@@ -106,6 +106,15 @@
   .mt-item .progress-fill{height:100%;border-radius:6px;background:var(--accent);}
   .mt-item.done .progress-fill{background:#1c8a4a;}
   .mt-item .pct{font-size:11px;color:var(--muted);margin-left:6px;}
+  .gantt-wrap{margin-top:14px;}
+  .gantt-axis{display:flex;margin-left:200px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:8px;}
+  .gantt-axis span{flex:1;font-size:10px;color:var(--muted);text-align:left;white-space:nowrap;overflow:hidden;}
+  .gantt-row{display:flex;align-items:center;gap:0;margin-bottom:10px;}
+  .gantt-label{width:200px;flex-shrink:0;font-size:13px;font-weight:600;padding-right:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gantt-track{flex:1;position:relative;height:26px;background:#f3f3f3;border-radius:4px;}
+  .gantt-bar{position:absolute;top:3px;height:20px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-dark));color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden;cursor:pointer;}
+  .gantt-bar.done{background:linear-gradient(90deg,#1c8a4a,#0c5c30);}
+  .gantt-bar .now-marker{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text);}
   .view-toggle{display:flex;gap:6px;}
   .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
   .view-toggle button.active{background:var(--text);color:#fff;border-color:var(--text);}
@@ -146,6 +155,13 @@
       </div>
       <div id="mytasks-list"></div>
       <p class="empty" id="mytasks-empty" style="display:none;">Nothing here — use the panel on the right to add a topic.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 4px;">Long-term Projects — CW Timeline</h2>
+      <p class="small">Each bar starts at the calendar week the project was created and runs until its resolution (end date) week.</p>
+      <div class="gantt-wrap" id="lt-gantt"></div>
+      <p class="empty" id="lt-gantt-empty" style="display:none;">No long-term projects yet — add one via the panel on the right.</p>
     </div>
 
     <div class="card">
@@ -533,6 +549,79 @@ function renderStatCards(){
     </div>`).join('');
 }
 
+// ---------- Long-term projects CW timeline (Gantt) ----------
+function renderLongTermGantt(){
+  const wrap = document.getElementById('lt-gantt');
+  const projects = data.tasks.filter(t=>t.type==='longterm' && t.endDate)
+    .map(t=>{
+      const startCW = isoWeekInfo(new Date(t.createdAt));
+      const endCW = dateToCW(t.endDate);
+      return { t, startCW, endCW };
+    })
+    .filter(p=>p.endCW)
+    .sort((a,b)=> (cwKey(a.startCW) - cwKey(b.startCW)) || a.t.createdAt - b.t.createdAt);
+
+  document.getElementById('lt-gantt-empty').style.display = projects.length ? 'none' : 'block';
+  if(!projects.length){ wrap.innerHTML=''; return; }
+
+  // overall timeline range spans the earliest creation week to the latest end week
+  let rangeStart = projects[0].startCW;
+  let rangeEnd = projects[0].endCW;
+  projects.forEach(p=>{
+    if(cwKey(p.startCW) < cwKey(rangeStart)) rangeStart = p.startCW;
+    if(cwKey(p.endCW) > cwKey(rangeEnd)) rangeEnd = p.endCW;
+  });
+  // pad one week on each side
+  rangeStart = prevCW(rangeStart.year, rangeStart.week);
+  rangeEnd = nextCW(rangeEnd.year, rangeEnd.week);
+
+  const totalWeeks = [];
+  let cur = rangeStart;
+  while(cwKey(cur) <= cwKey(rangeEnd)){
+    totalWeeks.push(cur);
+    cur = nextCW(cur.year, cur.week);
+  }
+  const span = totalWeeks.length;
+  const indexOf = {};
+  totalWeeks.forEach((w,i)=> indexOf[cwKey(w)] = i);
+  const nowKey = cwKey(currentCW());
+
+  // axis: show every week label, abbreviated
+  const axisHtml = totalWeeks.map(w=>`<span>CW${String(w.week).padStart(2,'0')}</span>`).join('');
+
+  const rowsHtml = projects.map(p=>{
+    const t = p.t;
+    const startIdx = indexOf[cwKey(p.startCW)] ?? 0;
+    const endIdx = indexOf[cwKey(p.endCW)] ?? (span-1);
+    const left = (startIdx / span) * 100;
+    const width = Math.max(((endIdx - startIdx + 1) / span) * 100, 100/span);
+    let nowMarker = '';
+    if(nowKey >= cwKey(p.startCW) && nowKey <= cwKey(p.endCW)){
+      const nowIdx = indexOf[nowKey];
+      const nowLeft = ((nowIdx - startIdx + 0.5) / (endIdx - startIdx + 1)) * 100;
+      nowMarker = `<span class="now-marker" style="left:${nowLeft}%;" title="Current week"></span>`;
+    }
+    return `
+      <div class="gantt-row">
+        <div class="gantt-label" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
+        <div class="gantt-track">
+          <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="${escapeHtml(t.title)} — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
+            ${cwLabel(p.startCW.year,p.startCW.week)} → ${cwLabel(p.endCW.year,p.endCW.week)}
+            ${nowMarker}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="gantt-axis">${axisHtml}</div>${rowsHtml}`;
+  wrap.querySelectorAll('.gantt-bar').forEach(bar=>{
+    bar.addEventListener('click', ()=>{
+      const t = data.tasks.find(x=>x.id===bar.dataset.id);
+      if(t) loadTaskIntoForm(t);
+    });
+  });
+}
+
 // ---------- Dashboard: My Tasks list ----------
 let myTasksFilter = 'open';
 
@@ -746,6 +835,7 @@ document.getElementById('tabs').addEventListener('click', (e)=>{
 function renderAll(){
   renderTaskTable();
   renderStatCards();
+  renderLongTermGantt();
   renderMyTasks();
   renderResolvedChart();
   renderNotes();
