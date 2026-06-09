@@ -23,7 +23,7 @@
   main{max-width:1500px;margin:24px auto;padding:0 24px;}
   .layout{display:flex;gap:20px;align-items:flex-start;}
   .content{flex:1;min-width:0;}
-  .sidebar{width:340px;flex-shrink:0;position:sticky;top:24px;}
+  .sidebar{width:320px;flex-shrink:0;position:sticky;top:24px;max-height:calc(100vh - 48px);overflow-y:auto;}
   .tab{display:none;}
   .tab.active{display:block;}
   .hero{background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;padding:34px 28px;margin-bottom:0;}
@@ -38,14 +38,16 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:0;padding:18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   .card.tagged{border-top:none;}
   h2{margin-top:0;font-size:15px;color:var(--text);font-weight:800;letter-spacing:1px;text-transform:uppercase;}
-  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px;margin-top:10px;}
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;margin-top:8px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;}
   input[type=text], input[type=number], select, textarea{
-    width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;
+    width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;
   }
-  textarea{resize:vertical;min-height:60px;}
+  textarea{resize:vertical;min-height:50px;}
+  .sidebar .card{padding:14px;}
+  .sidebar h2{font-size:14px;margin-bottom:8px;}
   .row{display:flex;gap:12px;flex-wrap:wrap;}
   .row > div{flex:1;min-width:180px;}
-  button.primary{background:var(--accent);color:#fff;border:none;border-radius:0;padding:12px 22px;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:14px;width:100%;}
+  button.primary{background:var(--accent);color:#fff;border:none;border-radius:0;padding:9px 18px;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:10px;width:100%;}
   button.primary:hover{background:var(--accent-dark);}
   button.secondary{background:#fff;border:1px solid #d4d4d4;border-radius:0;padding:6px 14px;font-size:12px;font-weight:600;letter-spacing:.5px;cursor:pointer;color:var(--text);}
   button.secondary:hover{border-color:var(--text);}
@@ -178,7 +180,7 @@
   .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
   .view-toggle button.active{background:var(--text);color:#fff;border-color:var(--text);}
   .dept-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
-  .dept-btn{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:#fff;color:var(--text);font-weight:600;transition:background .15s,color .15s;}
+  .dept-btn{font-size:10px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:#fff;color:var(--text);font-weight:600;transition:background .15s,color .15s;}
   .dept-btn.selected{background:var(--dark);color:#fff;border-color:var(--dark);}
   .modal-wide{max-width:700px;}
   .td-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
@@ -456,7 +458,9 @@ function dateToCW(dateStr){
   if(!dateStr) return null;
   const d = new Date(dateStr+'T00:00:00');
   if(isNaN(d)) return null;
-  return isoWeekInfo(d);
+  const cw = isoWeekInfo(d);
+  cw.day = ((d.getDay()+6)%7)+1;
+  return cw;
 }
 
 // ---------- Planning engine ----------
@@ -768,7 +772,7 @@ function renderLongTermGantt(){
       if(cwObj){
         const past = cwKey(cwObj) < nowKey;
         const cls = s.done ? 'done-cw' : (past ? 'overdue' : '');
-        cwBadge = '<span class="gantt-st-cw '+cls+'">'+cwLabel(cwObj.year, cwObj.week)+'</span>';
+        cwBadge = '<span class="gantt-st-cw '+cls+'">'+(cwObj.day ? cwLabel(cwObj.year,cwObj.week)+'.'+cwObj.day : cwLabel(cwObj.year,cwObj.week))+'</span>';
       }
       return '<div class="gantt-st-row'+(s.done?' done':'')+'" data-task="'+t.id+'" data-subtask="'+s.id+'">'+
         '<input type="checkbox" class="st-toggle" '+(s.done?'checked':'')+' title="Mark done">'+
