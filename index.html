@@ -145,9 +145,22 @@
   .subtask-list li.done span.lbl{text-decoration:line-through;color:var(--muted);}
   .subtask-list li button{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:2px 6px;}
   .subtask-list li button:hover{color:var(--accent);}
-  .gantt-subtasks{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-  .gantt-subtasks .st-chip{font-size:10px;border:1px solid var(--border);border-radius:10px;padding:2px 8px;cursor:pointer;color:var(--muted);background:#fff;}
-  .gantt-subtasks .st-chip.done{background:#1c8a4a;color:#fff;border-color:#1c8a4a;text-decoration:line-through;}
+  .gantt-subtask-list{width:100%;border-top:1px solid var(--border);margin-top:8px;padding-top:6px;}
+  .gantt-st-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:12px;}
+  .gantt-st-row:last-of-type{border-bottom:none;}
+  .gantt-st-row input[type="checkbox"]{width:15px;height:15px;accent-color:#1c8a4a;flex-shrink:0;cursor:pointer;}
+  .gantt-st-title{flex:1;color:var(--text);}
+  .gantt-st-row.done .gantt-st-title{text-decoration:line-through;color:var(--muted);}
+  .gantt-st-cw{font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;background:#f0f0f0;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+  .gantt-st-cw.overdue{background:#fde8e8;color:var(--accent);}
+  .gantt-st-cw.done-cw{background:#e8f5ee;color:#1c8a4a;}
+  .gantt-st-del{background:none;border:none;color:#ccc;cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;flex-shrink:0;}
+  .gantt-st-del:hover{color:var(--accent);}
+  .gantt-st-add{display:flex;gap:6px;padding-top:8px;align-items:center;}
+  .gantt-st-add input[type="text"]{flex:2;height:28px;font-size:12px;padding:0 8px;border:1px solid var(--border);border-radius:4px;}
+  .gantt-st-add input[type="date"]{flex:1;height:28px;font-size:11px;padding:0 4px;border:1px solid var(--border);border-radius:4px;}
+  .gantt-st-add button{height:28px;font-size:11px;padding:0 10px;border-radius:4px;border:1px solid var(--border);background:var(--dark);color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .gantt-st-add button:hover{background:var(--accent);border-color:var(--accent);}
   .week-col-body.drag-over{background:#fdeceb;outline:2px dashed var(--accent);outline-offset:-4px;}
   .remaining-col{margin-top:16px;}
   .remaining-col .week-col-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-height:none;}
@@ -753,22 +766,49 @@ function renderLongTermGantt(){
       const nowLeft = ((nowIdx - startIdx + 0.5) / (endIdx - startIdx + 1)) * 100;
       nowMarker = `<span class="now-marker" style="left:${nowLeft}%;" title="Current week"></span>`;
     }
-    const sub = t.description ? `<div class="gantt-sub" style="margin-left:${left}%;width:${width}%;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</div>` : '';
-    const subtasks = (t.subtasks && t.subtasks.length) ? `<div class="gantt-subtasks" style="margin-left:${left}%;width:${width}%;">${t.subtasks.map(s=>
-      `<span class="st-chip${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}" title="Click to toggle${s.targetCW ? ' — target CW '+cwLabel(s.targetCW.year,s.targetCW.week) : ''}">${escapeHtml(s.title)}${s.targetCW ? ' · CW'+String(s.targetCW.week).padStart(2,'0') : ''}</span>`).join('')}</div>` : '';
+    const sub = t.description ? `<div class="gantt-sub">${escapeHtml(t.description)}</div>` : '';
+    const stRows = (t.subtasks || []).map(s=>{
+      const cwObj = s.targetCW;
+      let cwBadge = '';
+      if(cwObj){
+        const past = cwKey(cwObj) < nowKey;
+        const cls = s.done ? 'done-cw' : (past ? 'overdue' : '');
+        cwBadge = `<span class="gantt-st-cw ${cls}">CW ${cwLabel(cwObj.year, cwObj.week)}</span>`;
+      }
+      return `<div class="gantt-st-row${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}">
+        <input type="checkbox" class="st-toggle" ${s.done?'checked':''} title="Mark done">
+        <span class="gantt-st-title">${escapeHtml(s.title)}</span>
+        ${cwBadge}
+        <button type="button" class="gantt-st-del" title="Remove subtask">&times;</button>
+      </div>`;
+    }).join('');
+    const subtaskSection = `
+      <div class="gantt-subtask-list" data-task="${t.id}">
+        ${stRows}
+        <div class="gantt-st-add">
+          <input type="text" class="st-new-title" placeholder="Add subtask…">
+          <input type="date" class="st-new-cw" title="Target calendar week">
+          <button type="button" class="st-add-btn">+ Add</button>
+        </div>
+      </div>`;
     return `
       <div class="gantt-row-wrap">
         <div class="gantt-row">
           <div class="gantt-label" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
           <div class="gantt-track">
-            <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="${escapeHtml(t.title)} — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
+            <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="Edit project — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
               ${cwLabel(p.startCW.year,p.startCW.week)} → ${cwLabel(p.endCW.year,p.endCW.week)}
               ${nowMarker}
             </div>
           </div>
         </div>
-        ${sub ? `<div class="gantt-sub-row"><div class="gantt-label"></div><div class="gantt-track-sub">${sub}</div></div>` : ''}
-        ${subtasks ? `<div class="gantt-sub-row"><div class="gantt-label"></div><div class="gantt-track-sub">${subtasks}</div></div>` : ''}
+        <div class="gantt-sub-row">
+          <div class="gantt-label"></div>
+          <div class="gantt-track-sub" style="width:100%;">
+            ${sub}
+            ${subtaskSection}
+          </div>
+        </div>
       </div>`;
   }).join('');
 
@@ -779,16 +819,49 @@ function renderLongTermGantt(){
       if(t) loadTaskIntoForm(t);
     });
   });
-  wrap.querySelectorAll('.st-chip').forEach(chip=>{
-    chip.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const t = data.tasks.find(x=>x.id===chip.dataset.task);
+  // subtask checkboxes
+  wrap.querySelectorAll('.gantt-st-row .st-toggle').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const row = cb.closest('.gantt-st-row');
+      const t = data.tasks.find(x=>x.id===row.dataset.task);
       if(!t || !t.subtasks) return;
-      const s = t.subtasks.find(x=>x.id===chip.dataset.subtask);
+      const s = t.subtasks.find(x=>x.id===row.dataset.subtask);
       if(!s) return;
-      s.done = !s.done;
+      s.done = cb.checked;
       saveData();
       renderLongTermGantt();
+    });
+  });
+
+  // delete subtask
+  wrap.querySelectorAll('.gantt-st-del').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = btn.closest('.gantt-st-row');
+      const t = data.tasks.find(x=>x.id===row.dataset.task);
+      if(!t || !t.subtasks) return;
+      t.subtasks = t.subtasks.filter(x=>x.id!==row.dataset.subtask);
+      saveData();
+      renderLongTermGantt();
+    });
+  });
+
+  // inline add subtask
+  wrap.querySelectorAll('.gantt-subtask-list').forEach(list=>{
+    const taskId = list.dataset.task;
+    list.querySelector('.st-add-btn').addEventListener('click', ()=>{
+      const titleInput = list.querySelector('.st-new-title');
+      const cwInput = list.querySelector('.st-new-cw');
+      const title = titleInput.value.trim();
+      if(!title) return;
+      const t = data.tasks.find(x=>x.id===taskId);
+      if(!t) return;
+      if(!t.subtasks) t.subtasks = [];
+      t.subtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false, targetCW: cwInput.value ? dateToCW(cwInput.value) : null });
+      saveData();
+      renderLongTermGantt();
+    });
+    list.querySelector('.st-new-title').addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter') list.querySelector('.st-add-btn').click();
     });
   });
 }
