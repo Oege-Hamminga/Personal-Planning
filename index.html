@@ -177,6 +177,18 @@
   .view-toggle{display:flex;gap:6px;}
   .view-toggle button{background:#fff;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:500;}
   .view-toggle button.active{background:var(--text);color:#fff;border-color:var(--text);}
+  .dept-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .dept-btn{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:#fff;color:var(--text);font-weight:600;transition:background .15s,color .15s;}
+  .dept-btn.selected{background:var(--dark);color:#fff;border-color:var(--dark);}
+  .modal-wide{max-width:700px;}
+  .td-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .td-body{display:flex;gap:24px;}
+  .td-left{flex:1;min-width:0;}
+  .td-right{width:160px;flex-shrink:0;}
+  .td-section-hd{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 6px;font-weight:700;}
+  .td-meta .badge{display:block;width:100%;margin-bottom:6px;text-align:center;}
+  .td-note-item{font-size:12px;border-left:3px solid var(--border);padding:4px 8px;margin-bottom:8px;color:var(--text);}
+  .td-note-item .td-note-date{font-size:10px;color:var(--muted);margin-bottom:2px;}
 </style>
 </head>
 <body>
@@ -236,20 +248,50 @@
 
   <!-- TASK DETAIL POPUP -->
   <div class="modal-overlay" id="task-detail-overlay">
-    <div class="modal">
-      <h2 id="td-title">Task</h2>
-      <div class="meta" id="td-meta" style="margin:8px 0 14px;display:flex;gap:6px;flex-wrap:wrap;"></div>
-      <div class="progress-row">
-        <div class="progress-track"><div class="progress-fill" id="td-progress" style="width:0%;"></div></div>
-        <div class="progress-pct" id="td-progress-pct"></div>
+    <div class="modal modal-wide">
+      <div class="td-header">
+        <h2 id="td-title">Task</h2>
+        <button class="secondary" id="td-close" style="margin-left:auto;">Close</button>
       </div>
-      <p class="small" id="td-progress-label" style="margin-top:6px;"></p>
-      <h3 style="margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.5px;">Details</h3>
-      <p id="td-desc" style="font-size:13px;line-height:1.5;white-space:pre-wrap;"></p>
-      <div style="display:flex;gap:10px;margin-top:18px;">
-        <button class="primary" id="td-toggle-done">Mark done</button>
-        <button class="secondary" id="td-edit">Edit</button>
-        <button class="secondary" id="td-close">Close</button>
+      <div class="td-body">
+        <div class="td-left">
+          <div class="progress-row" style="margin-bottom:8px;">
+            <div class="progress-track"><div class="progress-fill" id="td-progress" style="width:0%;"></div></div>
+            <div class="progress-pct" id="td-progress-pct"></div>
+          </div>
+          <p class="small" id="td-progress-label" style="margin-bottom:14px;"></p>
+          <h3 class="td-section-hd">Description</h3>
+          <p id="td-desc" style="font-size:13px;line-height:1.6;white-space:pre-wrap;margin-bottom:16px;"></p>
+          <div id="td-completion-notes-wrap" style="display:none;margin-bottom:16px;">
+            <h3 class="td-section-hd">Completion Notes</h3>
+            <div id="td-completion-notes-list"></div>
+          </div>
+          <h3 class="td-section-hd">Notes</h3>
+          <div id="td-notes-list" style="margin-bottom:10px;"></div>
+          <textarea id="td-note-input" placeholder="Add a note…" style="width:100%;min-height:60px;font-size:13px;resize:vertical;border:1px solid var(--border);border-radius:4px;padding:8px;box-sizing:border-box;"></textarea>
+          <button class="secondary" id="td-add-note" style="margin-top:6px;">Add Note</button>
+          <div style="display:flex;gap:10px;margin-top:18px;">
+            <button class="primary" id="td-toggle-done">Mark done</button>
+            <button class="secondary" id="td-edit">Edit</button>
+          </div>
+        </div>
+        <div class="td-right">
+          <div class="meta td-meta" id="td-meta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLETION NOTE MODAL -->
+  <div class="modal-overlay" id="complete-overlay">
+    <div class="modal">
+      <h2>Task Completed</h2>
+      <p class="small" id="complete-sub" style="margin-bottom:12px;"></p>
+      <label>Brief completion note (what was achieved / any follow-up)</label>
+      <textarea id="complete-note" placeholder="Describe the outcome…" style="width:100%;min-height:80px;font-size:13px;resize:vertical;border:1px solid var(--border);border-radius:4px;padding:8px;box-sizing:border-box;margin-top:4px;"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <button class="primary" id="complete-confirm">Confirm</button>
+        <button class="secondary" id="complete-skip">Skip</button>
       </div>
     </div>
   </div>
@@ -261,7 +303,7 @@
       <h2>All Tasks</h2>
       <table>
         <thead><tr>
-          <th>Title</th><th>Priority</th><th>Spec</th><th>Dept</th><th>Category</th><th>OEM</th><th>Duration</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
+          <th>Title</th><th>Priority</th><th>Dept</th><th>Category</th><th>OEM</th><th>Type</th><th>Planned CW</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="task-table-body"></tbody>
       </table>
@@ -315,33 +357,21 @@
       <input type="text" id="f-title" placeholder="Task title">
       <label>Priority</label>
       <select id="f-priority"><option>High</option><option selected>Normal</option></select>
-      <label>Specification</label>
-      <select id="f-spec"><option>Internal</option><option>External</option></select>
       <label>Required Department</label>
-      <select id="f-dept">
-        <option>R&D</option><option>Sales</option><option>PUR</option>
-        <option>PI</option><option>CS</option><option>PM</option><option>CC</option>
-      </select>
+      <div id="f-dept-wrap" class="dept-grid"></div>
       <label>Category</label>
-      <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option></select>
+      <select id="f-category"><option>CHANGES</option><option>STRATEGY</option><option>PORTFOLIO</option><option>PERSONAL</option></select>
       <label>OEM</label>
       <select id="f-oem"><option>Stellantis</option><option>IVECO</option><option>KIA</option><option>Other</option><option>Multiple</option></select>
-      <label>Estimated duration</label>
-      <div class="row" style="gap:8px;">
-        <div style="flex:1;min-width:0;"><input type="number" id="f-duration" min="0" step="1" placeholder="e.g. 3"></div>
-        <div style="flex:1;min-width:0;">
-          <select id="f-duration-unit"><option value="hours">Hours</option><option value="days" selected>Days</option><option value="weeks">Weeks</option></select>
-        </div>
-      </div>
       <label>Type</label>
       <select id="f-type">
-        <option value="regular">Regular task (auto-planned per week)</option>
-        <option value="longterm">Long-term planning task</option>
+        <option value="regular">Regular task</option>
+        <option value="longterm">Long-term task</option>
       </select>
       <div id="schedule-wrap">
         <label>Schedule</label>
         <select id="f-schedule-mode">
-          <option value="asap" selected>A.S.A.P. (auto-planned)</option>
+          <option value="asap" selected>A.S.A.P.</option>
           <option value="date">Set a calendar week</option>
         </select>
         <div id="schedule-date-wrap" style="display:none;">
@@ -351,13 +381,6 @@
       <div id="longterm-week-wrap" style="display:none;">
         <label>End date (when this should be finished)</label>
         <input type="date" id="f-enddate">
-        <label>Subtasks</label>
-        <div class="row" style="gap:8px;">
-          <div style="flex:2;min-width:0;"><input type="text" id="f-subtask-input" placeholder="Add a subtask..."></div>
-          <div style="flex:1;min-width:0;"><input type="date" id="f-subtask-cw" title="Target calendar week to finish this subtask"></div>
-          <button class="secondary" id="f-subtask-add" type="button" style="width:auto;">Add</button>
-        </div>
-        <ul id="f-subtask-list" class="subtask-list"></ul>
       </div>
       <label>Description / notes (optional)</label>
       <textarea id="f-desc" placeholder="Details about this task..."></textarea>
@@ -384,6 +407,9 @@ let data = loadData();
 if(!data.notes) data.notes = [];
 if(!data.capacity) data.capacity = 10;
 
+// migrate department string->array
+data.tasks.forEach(function(t){ if(typeof t.department==='string') t.department=[t.department]; });
+
 // ---------- ISO calendar week helpers ----------
 function isoWeekInfo(d){
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -394,10 +420,15 @@ function isoWeekInfo(d){
   const week = 1 + Math.round(diff / 7);
   return { year: date.getUTCFullYear(), week };
 }
-function cwLabel(year, week){ return `${year}-W${String(week).padStart(2,'0')}`; }
+function cwLabel(year, week){ return 'CW'+week; }
+function cwDayLabel(date){
+  const cw = isoWeekInfo(date);
+  const day = ((date.getDay()+6)%7)+1;
+  return 'CW'+cw.week+'.'+day;
+}
 function currentCW(){ const i = isoWeekInfo(new Date()); return { year: i.year, week: i.week }; }
 function weeksInYear(year){
-  const p = (y)=> { const d = new Date(Date.UTC(y,0,1)); const day = d.getUTCDay()||7; if(day<=4) d.setUTCDate(d.getUTCDate()-day+1); else d.setUTCDate(d.getUTCDate()+8-day); return isoWeekInfo(d).week; };
+  const p = function(y){ const d = new Date(Date.UTC(y,0,1)); const day = d.getUTCDay()||7; if(day<=4) d.setUTCDate(d.getUTCDate()-day+1); else d.setUTCDate(d.getUTCDate()+8-day); return isoWeekInfo(d).week; };
   return p(year) === 53 ? 53 : (isoWeekInfo(new Date(Date.UTC(year,11,28))).week);
 }
 function nextCW(year, week){
@@ -429,13 +460,11 @@ function dateToCW(dateStr){
 }
 
 // ---------- Planning engine ----------
-// Returns array of { year, week, label, tasks: [...] } sliding window starting at current week
 function computePlanning(numWeeks){
   const cap = data.capacity;
   const start = currentCW();
-  const allRegular = data.tasks.filter(t=>t.type==='regular' && !t.done);
+  const allRegular = data.tasks.filter(function(t){ return t.type==='regular' && !t.done; });
 
-  // build week slots
   const slots = [];
   let cur = start;
   for(let i=0;i<numWeeks;i++){
@@ -443,11 +472,10 @@ function computePlanning(numWeeks){
     cur = nextCW(cur.year, cur.week);
   }
   const slotIndex = {};
-  slots.forEach((s,idx)=> slotIndex[cwKey(s)] = idx);
+  slots.forEach(function(s,idx){ slotIndex[cwKey(s)] = idx; });
 
-  // tasks pinned to a specific week (manual drag override, or "set a calendar week" schedule) go straight in
   const placed = new Set();
-  allRegular.forEach(t=>{
+  allRegular.forEach(function(t){
     const target = t.plannedOverride || (t.scheduleMode==='date' ? t.scheduledCW : null);
     if(target){
       const k = cwKey(target);
@@ -457,12 +485,9 @@ function computePlanning(numWeeks){
       }
     }
   });
-  const regular = allRegular.filter(t=>!placed.has(t.id))
-    .sort((a,b)=> (a.priority===b.priority?0:(a.priority==='High'?-1:1)) || a.createdAt - b.createdAt);
+  const regular = allRegular.filter(function(t){ return !placed.has(t.id); })
+    .sort(function(a,b){ return (a.priority===b.priority?0:(a.priority==='High'?-1:1)) || a.createdAt - b.createdAt; });
 
-  // long-term projects are tracked exclusively via the Gantt timeline and never enter the weekly columns
-
-  // distribute regular tasks: fill week by week respecting capacity (long-term tasks count toward capacity too)
   let taskPtr = 0;
   for(let i=0;i<slots.length && taskPtr<regular.length;i++){
     const slot = slots[i];
@@ -474,50 +499,73 @@ function computePlanning(numWeeks){
   return slots;
 }
 
-// ---------- Rendering: Tasks tab ----------
-const deptLabels = ['R&D','Sales','PUR','PI','CS','PM','CC'];
+// ---------- Dept multi-select ----------
+const ALL_DEPTS = ['R&D','Sales','PUR','PI','CS','PM','CC','Quality','Project','Marketing','IT'];
+let selectedDepts = [];
+function renderDeptButtons(){
+  const wrap = document.getElementById('f-dept-wrap');
+  wrap.innerHTML = ALL_DEPTS.map(function(d){ return '<button type="button" class="dept-btn'+(selectedDepts.includes(d)?' selected':'')+'" data-dept="'+d+'">'+d+'</button>'; }).join('');
+  wrap.querySelectorAll('.dept-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      const d = btn.dataset.dept;
+      if(selectedDepts.includes(d)) selectedDepts = selectedDepts.filter(function(x){ return x!==d; });
+      else selectedDepts.push(d);
+      renderDeptButtons();
+    });
+  });
+}
+renderDeptButtons();
 
+// ---------- Rendering: Tasks tab ----------
 function renderTaskTable(){
   const tbody = document.getElementById('task-table-body');
   tbody.innerHTML = '';
-  const tasks = [...data.tasks].sort((a,b)=> b.createdAt - a.createdAt);
+  const tasks = [...data.tasks].sort(function(a,b){ return b.createdAt - a.createdAt; });
   document.getElementById('no-tasks').style.display = tasks.length ? 'none' : 'block';
 
-  // compute planned week per task from current planning (only meaningful for regular & longterm)
   const planning = computePlanning(26);
   const plannedMap = {};
-  planning.forEach(slot=> slot.tasks.forEach(t=> { if(!(t.id in plannedMap)) plannedMap[t.id] = slot.label; }));
+  planning.forEach(function(slot){ slot.tasks.forEach(function(t){ if(!(t.id in plannedMap)) plannedMap[t.id] = slot.label; }); });
 
-  tasks.forEach(t=>{
+  tasks.forEach(function(t){
     const tr = document.createElement('tr');
     const planned = plannedMap[t.id] || '-';
-    tr.innerHTML = `
-      <td>${escapeHtml(t.title)}</td>
-      <td><span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span></td>
-      <td><span class="badge spec">${t.specification}</span></td>
-      <td><span class="badge dept">${t.department}</span></td>
-      <td><span class="badge cat">${t.category}</span></td>
-      <td><span class="badge oem">${t.oem||'-'}</span></td>
-      <td>${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : '<span class="small">-</span>'}</td>
-      <td>${t.type==='longterm' ? ('Long-term'+(t.endDate?` <span class="small">(due ${t.endDate})</span>`:'')) : 'Regular'}</td>
-      <td>${planned}</td>
-      <td>${t.done ? '<span class="badge done">Done</span>' : '<span class="small">Open</span>'}</td>
-      <td class="actions">
-        <button class="secondary" data-act="toggle" data-id="${t.id}">${t.done?'Reopen':'Mark done'}</button>
-        <button class="secondary" data-act="edit" data-id="${t.id}">Edit</button>
-        <button class="secondary danger" data-act="delete" data-id="${t.id}">Delete</button>
-      </td>`;
+    const deptDisplay = Array.isArray(t.department) ? t.department.join(', ') : (t.department||'-');
+    tr.innerHTML =
+      '<td>'+escapeHtml(t.title)+'</td>'+
+      '<td><span class="badge '+(t.priority==='High'?'high':'normal')+'">'+t.priority+'</span></td>'+
+      '<td><span class="badge dept">'+escapeHtml(deptDisplay)+'</span></td>'+
+      '<td><span class="badge cat">'+t.category+'</span></td>'+
+      '<td><span class="badge oem">'+(t.oem||'-')+'</span></td>'+
+      '<td>'+(t.type==='longterm' ? ('Long-term'+(t.endDate?' <span class="small">(due '+t.endDate+')</span>':'')) : 'Regular')+'</td>'+
+      '<td>'+planned+'</td>'+
+      '<td>'+(t.done ? '<span class="badge done">Done</span>' : '<span class="small">Open</span>')+'</td>'+
+      '<td class="actions">'+
+        '<button class="secondary" data-act="toggle" data-id="'+t.id+'">'+(t.done?'Reopen':'Mark done')+'</button>'+
+        '<button class="secondary" data-act="edit" data-id="'+t.id+'">Edit</button>'+
+        '<button class="secondary danger" data-act="delete" data-id="'+t.id+'">Delete</button>'+
+      '</td>';
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll('button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+  tbody.querySelectorAll('button').forEach(function(btn){
+    btn.addEventListener('click', function(){
       const id = btn.dataset.id;
       const act = btn.dataset.act;
-      const task = data.tasks.find(x=>x.id===id);
+      const task = data.tasks.find(function(x){ return x.id===id; });
       if(!task) return;
-      if(act==='toggle'){ task.done = !task.done; task.completedWeek = task.done ? currentCW() : null; saveData(); renderAll(); }
-      else if(act==='delete'){ if(confirm('Delete this task?')){ data.tasks = data.tasks.filter(x=>x.id!==id); data.notes = data.notes.filter(n=>n.taskId!==id); saveData(); renderAll(); } }
+      if(act==='toggle'){
+        if(!task.done){
+          openCompleteModal(task, function(text){
+            task.done = true; task.manualProgress = 100; task.completedWeek = currentCW();
+            if(text){ if(!task.completionNotes) task.completionNotes=[]; task.completionNotes.push({text, cwDay:cwDayLabel(new Date()), createdAt:Date.now()}); }
+            saveData(); renderAll();
+          });
+        } else {
+          task.done = false; task.completedWeek = null; saveData(); renderAll();
+        }
+      }
+      else if(act==='delete'){ if(confirm('Delete this task?')){ data.tasks = data.tasks.filter(function(x){ return x.id!==id; }); data.notes = data.notes.filter(function(n){ return n.taskId!==id; }); saveData(); renderAll(); } }
       else if(act==='edit'){ loadTaskIntoForm(task); }
     });
   });
@@ -529,56 +577,20 @@ function taskProgressPct(t){
   if(t.done) return 100;
   if(typeof t.manualProgress === 'number') return t.manualProgress;
   if(t.subtasks && t.subtasks.length){
-    const doneCount = t.subtasks.filter(s=>s.done).length;
+    const doneCount = t.subtasks.filter(function(s){ return s.done; }).length;
     return Math.round(doneCount / t.subtasks.length * 100);
-  }
-  if(t.duration){
-    const unitMs = { hours:3600000, days:86400000, weeks:604800000 }[t.durationUnit||'days'];
-    const totalMs = t.duration * unitMs;
-    const elapsed = Date.now() - t.createdAt;
-    if(totalMs > 0) return Math.max(0, Math.min(99, Math.round(elapsed/totalMs*100)));
   }
   return 0;
 }
-
-let formSubtasks = [];
-function renderSubtaskFormList(){
-  const list = document.getElementById('f-subtask-list');
-  list.innerHTML = formSubtasks.map((s,i)=>`
-    <li class="${s.done?'done':''}">
-      <input type="checkbox" data-idx="${i}" class="st-toggle" ${s.done?'checked':''}>
-      <span class="lbl">${escapeHtml(s.title)}</span>
-      ${s.targetCW ? `<span class="small" style="margin-left:6px;">target CW ${cwLabel(s.targetCW.year, s.targetCW.week)}</span>` : ''}
-      <button type="button" data-idx="${i}" class="st-remove" title="Remove">&times;</button>
-    </li>`).join('');
-  list.querySelectorAll('.st-toggle').forEach(cb=>{
-    cb.addEventListener('change', ()=>{ formSubtasks[parseInt(cb.dataset.idx,10)].done = cb.checked; renderSubtaskFormList(); });
-  });
-  list.querySelectorAll('.st-remove').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ formSubtasks.splice(parseInt(btn.dataset.idx,10),1); renderSubtaskFormList(); });
-  });
-}
-document.getElementById('f-subtask-add').addEventListener('click', ()=>{
-  const input = document.getElementById('f-subtask-input');
-  const cwInput = document.getElementById('f-subtask-cw');
-  const title = input.value.trim();
-  if(!title) return;
-  formSubtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false, targetCW: cwInput.value ? dateToCW(cwInput.value) : null });
-  input.value = '';
-  cwInput.value = '';
-  renderSubtaskFormList();
-});
 
 function loadTaskIntoForm(t){
   document.getElementById('task-id').value = t.id;
   document.getElementById('f-title').value = t.title;
   document.getElementById('f-priority').value = t.priority;
-  document.getElementById('f-spec').value = t.specification;
-  document.getElementById('f-dept').value = t.department;
+  selectedDepts = Array.isArray(t.department) ? [...t.department] : (t.department ? [t.department] : []);
+  renderDeptButtons();
   document.getElementById('f-category').value = t.category;
   document.getElementById('f-oem').value = t.oem || 'Stellantis';
-  document.getElementById('f-duration').value = t.duration || '';
-  document.getElementById('f-duration-unit').value = t.durationUnit || 'days';
   document.getElementById('f-type').value = t.type;
   document.getElementById('f-enddate').value = t.endDate || '';
   const schedMode = t.scheduleMode || 'asap';
@@ -588,8 +600,6 @@ function loadTaskIntoForm(t){
   document.getElementById('f-desc').value = t.description || '';
   document.getElementById('longterm-week-wrap').style.display = t.type==='longterm' ? 'block' : 'none';
   document.getElementById('schedule-wrap').style.display = t.type==='longterm' ? 'none' : 'block';
-  formSubtasks = (t.subtasks || []).map(s=>({...s}));
-  renderSubtaskFormList();
   document.getElementById('form-title').textContent = 'Edit Task';
   document.getElementById('save-task').textContent = 'Save Changes';
   document.getElementById('cancel-edit').style.display = 'inline-block';
@@ -599,12 +609,10 @@ function resetForm(){
   document.getElementById('task-id').value = '';
   document.getElementById('f-title').value = '';
   document.getElementById('f-priority').value = 'Normal';
-  document.getElementById('f-spec').value = 'Internal';
-  document.getElementById('f-dept').value = 'R&D';
+  selectedDepts = [];
+  renderDeptButtons();
   document.getElementById('f-category').value = 'CHANGES';
   document.getElementById('f-oem').value = 'Stellantis';
-  document.getElementById('f-duration').value = '';
-  document.getElementById('f-duration-unit').value = 'days';
   document.getElementById('f-type').value = 'regular';
   document.getElementById('f-enddate').value = '';
   document.getElementById('f-schedule-mode').value = 'asap';
@@ -613,25 +621,22 @@ function resetForm(){
   document.getElementById('f-desc').value = '';
   document.getElementById('longterm-week-wrap').style.display = 'none';
   document.getElementById('schedule-wrap').style.display = 'block';
-  formSubtasks = [];
-  document.getElementById('f-subtask-input').value = '';
-  renderSubtaskFormList();
   document.getElementById('form-title').textContent = 'Add Task';
   document.getElementById('save-task').textContent = 'Add Task';
   document.getElementById('cancel-edit').style.display = 'none';
 }
 
-document.getElementById('f-type').addEventListener('change', (e)=>{
+document.getElementById('f-type').addEventListener('change', function(e){
   const isLongterm = e.target.value==='longterm';
   document.getElementById('longterm-week-wrap').style.display = isLongterm ? 'block' : 'none';
   document.getElementById('schedule-wrap').style.display = isLongterm ? 'none' : 'block';
 });
-document.getElementById('f-schedule-mode').addEventListener('change', (e)=>{
+document.getElementById('f-schedule-mode').addEventListener('change', function(e){
   document.getElementById('schedule-date-wrap').style.display = e.target.value==='date' ? 'block' : 'none';
 });
 document.getElementById('cancel-edit').addEventListener('click', resetForm);
 
-document.getElementById('save-task').addEventListener('click', ()=>{
+document.getElementById('save-task').addEventListener('click', function(){
   const title = document.getElementById('f-title').value.trim();
   if(!title){ alert('Please enter a title.'); return; }
   const type = document.getElementById('f-type').value;
@@ -645,24 +650,22 @@ document.getElementById('save-task').addEventListener('click', ()=>{
     alert('Please pick a calendar week date, or switch to A.S.A.P.'); return;
   }
   const id = document.getElementById('task-id').value;
+  const existingTask = id ? data.tasks.find(function(x){ return x.id===id; }) : null;
   const payload = {
     title,
     priority: document.getElementById('f-priority').value,
-    specification: document.getElementById('f-spec').value,
-    department: document.getElementById('f-dept').value,
+    department: [...selectedDepts],
     category: document.getElementById('f-category').value,
     oem: document.getElementById('f-oem').value,
-    duration: document.getElementById('f-duration').value ? parseInt(document.getElementById('f-duration').value,10) : null,
-    durationUnit: document.getElementById('f-duration-unit').value,
     type,
     endDate: type==='longterm' ? endDate : '',
     description: document.getElementById('f-desc').value.trim(),
     scheduleMode: type==='regular' ? scheduleMode : null,
     scheduledCW: type==='regular' && scheduleMode==='date' ? dateToCW(scheduleDate) : null,
-    subtasks: type==='longterm' ? formSubtasks.map(s=>({...s})) : [],
+    subtasks: type==='longterm' ? (existingTask ? (existingTask.subtasks || []) : []) : [],
   };
   if(id){
-    const t = data.tasks.find(x=>x.id===id);
+    const t = data.tasks.find(function(x){ return x.id===id; });
     Object.assign(t, payload);
     t.plannedOverride = null;
   } else {
@@ -673,70 +676,62 @@ document.getElementById('save-task').addEventListener('click', ()=>{
   renderAll();
 });
 
-// ---------- Rendering: Open Topics year overview (clickable CW grid) ----------
+// ---------- Rendering: task chip ----------
 function taskChipHtml(t){
-  return `
-    <div class="task-chip${t.done?' done':''}">
-      <div class="left">
-        <strong>${escapeHtml(t.title)}</strong>
-        <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
-        <span class="badge dept">${t.department}</span>
-        <span class="badge cat">${t.category}</span>
-        <span class="badge oem">${t.oem||'-'}</span>
-        ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
-        ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}
-      </div>
-      <div class="actions">
-        <button class="secondary" data-id="${t.id}">${t.done ? 'Reopen' : 'Mark done'}</button>
-      </div>
-    </div>`;
+  const depts = Array.isArray(t.department) ? t.department : (t.department ? [t.department] : []);
+  return '<div class="task-chip'+(t.done?' done':'')+'">'+
+    '<div class="left">'+
+      '<strong>'+escapeHtml(t.title)+'</strong>'+
+      '<span class="badge '+(t.priority==='High'?'high':'normal')+'">'+t.priority+'</span>'+
+      depts.map(function(d){ return '<span class="badge dept">'+escapeHtml(d)+'</span>'; }).join('')+
+      '<span class="badge cat">'+t.category+'</span>'+
+      '<span class="badge oem">'+(t.oem||'-')+'</span>'+
+      (t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : '')+
+    '</div>'+
+    '<div class="actions">'+
+      '<button class="secondary" data-id="'+t.id+'">'+(t.done ? 'Reopen' : 'Mark done')+'</button>'+
+    '</div>'+
+  '</div>';
 }
 
 // ---------- Dashboard: stat cards ----------
 function renderStatCards(){
   const start = currentCW();
   const slots = computePlanning(2);
-  const openTotal = data.tasks.filter(t=>!t.done).length;
-  const dueThisWeek = slots[0] ? slots[0].tasks.filter(t=>!t.done).length : 0;
-  const resolvedThisWeek = data.tasks.filter(t=> t.done && t.completedWeek && cwKey(t.completedWeek)===cwKey(start)).length;
+  const openTotal = data.tasks.filter(function(t){ return !t.done; }).length;
+  const dueThisWeek = slots[0] ? slots[0].tasks.filter(function(t){ return !t.done; }).length : 0;
+  const resolvedThisWeek = data.tasks.filter(function(t){ return t.done && t.completedWeek && cwKey(t.completedWeek)===cwKey(start); }).length;
 
   const cards = [
     { cls:'c1', lbl:'Open Topics', val: openTotal, sub: 'Across all weeks' },
-    { cls:'c2', lbl:'Planned — This Week', val: dueThisWeek, sub: `CW ${cwLabel(start.year, start.week)} · capacity ${data.capacity}` },
+    { cls:'c2', lbl:'Planned — This Week', val: dueThisWeek, sub: cwLabel(start.year, start.week)+' · capacity '+data.capacity },
     { cls:'c3', lbl:'Resolved This Week', val: resolvedThisWeek, sub: 'Marked done in current CW' },
   ];
   const row = document.getElementById('stat-row');
-  row.innerHTML = cards.map(c=>`
-    <div class="stat-card ${c.cls}">
-      <div class="lbl">${c.lbl}</div>
-      <div class="val">${c.val}</div>
-      <div class="sub">${c.sub}</div>
-    </div>`).join('');
+  row.innerHTML = cards.map(function(c){ return '<div class="stat-card '+c.cls+'"><div class="lbl">'+c.lbl+'</div><div class="val">'+c.val+'</div><div class="sub">'+c.sub+'</div></div>'; }).join('');
 }
 
 // ---------- Long-term projects CW timeline (Gantt) ----------
 function renderLongTermGantt(){
   const wrap = document.getElementById('lt-gantt');
-  const projects = data.tasks.filter(t=>t.type==='longterm' && t.endDate)
-    .map(t=>{
+  const projects = data.tasks.filter(function(t){ return t.type==='longterm' && t.endDate; })
+    .map(function(t){
       const startCW = isoWeekInfo(new Date(t.createdAt));
       const endCW = dateToCW(t.endDate);
       return { t, startCW, endCW };
     })
-    .filter(p=>p.endCW)
-    .sort((a,b)=> (cwKey(a.startCW) - cwKey(b.startCW)) || a.t.createdAt - b.t.createdAt);
+    .filter(function(p){ return p.endCW; })
+    .sort(function(a,b){ return (cwKey(a.startCW) - cwKey(b.startCW)) || a.t.createdAt - b.t.createdAt; });
 
   document.getElementById('lt-gantt-empty').style.display = projects.length ? 'none' : 'block';
   if(!projects.length){ wrap.innerHTML=''; return; }
 
-  // overall timeline range spans the earliest creation week to the latest end week
   let rangeStart = projects[0].startCW;
   let rangeEnd = projects[0].endCW;
-  projects.forEach(p=>{
+  projects.forEach(function(p){
     if(cwKey(p.startCW) < cwKey(rangeStart)) rangeStart = p.startCW;
     if(cwKey(p.endCW) > cwKey(rangeEnd)) rangeEnd = p.endCW;
   });
-  // pad one week on each side
   rangeStart = prevCW(rangeStart.year, rangeStart.week);
   rangeEnd = nextCW(rangeEnd.year, rangeEnd.week);
 
@@ -748,84 +743,82 @@ function renderLongTermGantt(){
   }
   const span = totalWeeks.length;
   const indexOf = {};
-  totalWeeks.forEach((w,i)=> indexOf[cwKey(w)] = i);
+  totalWeeks.forEach(function(w,i){ indexOf[cwKey(w)] = i; });
   const nowKey = cwKey(currentCW());
 
-  // axis: show every week label, abbreviated
-  const axisHtml = totalWeeks.map(w=>`<span>CW${String(w.week).padStart(2,'0')}</span>`).join('');
+  // axis: show label every 5 weeks only
+  const axisHtml = totalWeeks.map(function(w,i){ return '<span>'+(i%5===0?'CW'+w.week:'')+'</span>'; }).join('');
 
-  const rowsHtml = projects.map(p=>{
+  const rowsHtml = projects.map(function(p){
     const t = p.t;
-    const startIdx = indexOf[cwKey(p.startCW)] ?? 0;
-    const endIdx = indexOf[cwKey(p.endCW)] ?? (span-1);
+    const startIdx = (indexOf[cwKey(p.startCW)] !== undefined) ? indexOf[cwKey(p.startCW)] : 0;
+    const endIdx = (indexOf[cwKey(p.endCW)] !== undefined) ? indexOf[cwKey(p.endCW)] : (span-1);
     const left = (startIdx / span) * 100;
     const width = Math.max(((endIdx - startIdx + 1) / span) * 100, 100/span);
     let nowMarker = '';
     if(nowKey >= cwKey(p.startCW) && nowKey <= cwKey(p.endCW)){
       const nowIdx = indexOf[nowKey];
       const nowLeft = ((nowIdx - startIdx + 0.5) / (endIdx - startIdx + 1)) * 100;
-      nowMarker = `<span class="now-marker" style="left:${nowLeft}%;" title="Current week"></span>`;
+      nowMarker = '<span class="now-marker" style="left:'+nowLeft+'%;" title="Current week"></span>';
     }
-    const sub = t.description ? `<div class="gantt-sub">${escapeHtml(t.description)}</div>` : '';
-    const stRows = (t.subtasks || []).map(s=>{
+    const sub = t.description ? '<div class="gantt-sub">'+escapeHtml(t.description)+'</div>' : '';
+    const stRows = (t.subtasks || []).map(function(s){
       const cwObj = s.targetCW;
       let cwBadge = '';
       if(cwObj){
         const past = cwKey(cwObj) < nowKey;
         const cls = s.done ? 'done-cw' : (past ? 'overdue' : '');
-        cwBadge = `<span class="gantt-st-cw ${cls}">CW ${cwLabel(cwObj.year, cwObj.week)}</span>`;
+        cwBadge = '<span class="gantt-st-cw '+cls+'">'+cwLabel(cwObj.year, cwObj.week)+'</span>';
       }
-      return `<div class="gantt-st-row${s.done?' done':''}" data-task="${t.id}" data-subtask="${s.id}">
-        <input type="checkbox" class="st-toggle" ${s.done?'checked':''} title="Mark done">
-        <span class="gantt-st-title">${escapeHtml(s.title)}</span>
-        ${cwBadge}
-        <button type="button" class="gantt-st-del" title="Remove subtask">&times;</button>
-      </div>`;
+      return '<div class="gantt-st-row'+(s.done?' done':'')+'" data-task="'+t.id+'" data-subtask="'+s.id+'">'+
+        '<input type="checkbox" class="st-toggle" '+(s.done?'checked':'')+' title="Mark done">'+
+        '<span class="gantt-st-title">'+escapeHtml(s.title)+'</span>'+
+        cwBadge+
+        '<button type="button" class="gantt-st-del" title="Remove subtask">&times;</button>'+
+      '</div>';
     }).join('');
-    const subtaskSection = `
-      <div class="gantt-subtask-list" data-task="${t.id}">
-        ${stRows}
-        <div class="gantt-st-add">
-          <input type="text" class="st-new-title" placeholder="Add subtask…">
-          <input type="date" class="st-new-cw" title="Target calendar week">
-          <button type="button" class="st-add-btn">+ Add</button>
-        </div>
-      </div>`;
-    return `
-      <div class="gantt-row-wrap">
-        <div class="gantt-row">
-          <div class="gantt-label" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</div>
-          <div class="gantt-track">
-            <div class="gantt-bar${t.done?' done':''}" data-id="${t.id}" style="left:${left}%;width:${width}%;" title="Edit project — CW ${cwLabel(p.startCW.year,p.startCW.week)} → CW ${cwLabel(p.endCW.year,p.endCW.week)}${t.done?' (done)':''}">
-              ${cwLabel(p.startCW.year,p.startCW.week)} → ${cwLabel(p.endCW.year,p.endCW.week)}
-              ${nowMarker}
-            </div>
-          </div>
-        </div>
-        <div class="gantt-sub-row">
-          <div class="gantt-label"></div>
-          <div class="gantt-track-sub" style="width:100%;">
-            ${sub}
-            ${subtaskSection}
-          </div>
-        </div>
-      </div>`;
+    const subtaskSection =
+      '<div class="gantt-subtask-list" data-task="'+t.id+'">'+
+        stRows+
+        '<div class="gantt-st-add">'+
+          '<input type="text" class="st-new-title" placeholder="Add subtask…">'+
+          '<input type="date" class="st-new-cw" title="Target calendar week">'+
+          '<button type="button" class="st-add-btn">+ Add</button>'+
+        '</div>'+
+      '</div>';
+    return '<div class="gantt-row-wrap">'+
+      '<div class="gantt-row">'+
+        '<div class="gantt-label" title="'+escapeHtml(t.title)+'">'+escapeHtml(t.title)+'</div>'+
+        '<div class="gantt-track">'+
+          '<div class="gantt-bar'+(t.done?' done':'')+'" data-id="'+t.id+'" style="left:'+left+'%;width:'+width+'%;" title="Edit project — '+cwLabel(p.startCW.year,p.startCW.week)+' to '+cwLabel(p.endCW.year,p.endCW.week)+(t.done?' (done)':'')+'">'+
+            cwLabel(p.startCW.year,p.startCW.week)+' → '+cwLabel(p.endCW.year,p.endCW.week)+
+            nowMarker+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="gantt-sub-row">'+
+        '<div class="gantt-label"></div>'+
+        '<div class="gantt-track-sub" style="width:100%;">'+
+          sub+
+          subtaskSection+
+        '</div>'+
+      '</div>'+
+    '</div>';
   }).join('');
 
-  wrap.innerHTML = `<div class="gantt-axis">${axisHtml}</div>${rowsHtml}`;
-  wrap.querySelectorAll('.gantt-bar').forEach(bar=>{
-    bar.addEventListener('click', ()=>{
-      const t = data.tasks.find(x=>x.id===bar.dataset.id);
+  wrap.innerHTML = '<div class="gantt-axis">'+axisHtml+'</div>'+rowsHtml;
+  wrap.querySelectorAll('.gantt-bar').forEach(function(bar){
+    bar.addEventListener('click', function(){
+      const t = data.tasks.find(function(x){ return x.id===bar.dataset.id; });
       if(t) loadTaskIntoForm(t);
     });
   });
-  // subtask checkboxes
-  wrap.querySelectorAll('.gantt-st-row .st-toggle').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
+  wrap.querySelectorAll('.gantt-st-row .st-toggle').forEach(function(cb){
+    cb.addEventListener('change', function(){
       const row = cb.closest('.gantt-st-row');
-      const t = data.tasks.find(x=>x.id===row.dataset.task);
+      const t = data.tasks.find(function(x){ return x.id===row.dataset.task; });
       if(!t || !t.subtasks) return;
-      const s = t.subtasks.find(x=>x.id===row.dataset.subtask);
+      const s = t.subtasks.find(function(x){ return x.id===row.dataset.subtask; });
       if(!s) return;
       s.done = cb.checked;
       saveData();
@@ -833,34 +826,32 @@ function renderLongTermGantt(){
     });
   });
 
-  // delete subtask
-  wrap.querySelectorAll('.gantt-st-del').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
+  wrap.querySelectorAll('.gantt-st-del').forEach(function(btn){
+    btn.addEventListener('click', function(){
       const row = btn.closest('.gantt-st-row');
-      const t = data.tasks.find(x=>x.id===row.dataset.task);
+      const t = data.tasks.find(function(x){ return x.id===row.dataset.task; });
       if(!t || !t.subtasks) return;
-      t.subtasks = t.subtasks.filter(x=>x.id!==row.dataset.subtask);
+      t.subtasks = t.subtasks.filter(function(x){ return x.id!==row.dataset.subtask; });
       saveData();
       renderLongTermGantt();
     });
   });
 
-  // inline add subtask
-  wrap.querySelectorAll('.gantt-subtask-list').forEach(list=>{
+  wrap.querySelectorAll('.gantt-subtask-list').forEach(function(list){
     const taskId = list.dataset.task;
-    list.querySelector('.st-add-btn').addEventListener('click', ()=>{
+    list.querySelector('.st-add-btn').addEventListener('click', function(){
       const titleInput = list.querySelector('.st-new-title');
       const cwInput = list.querySelector('.st-new-cw');
       const title = titleInput.value.trim();
       if(!title) return;
-      const t = data.tasks.find(x=>x.id===taskId);
+      const t = data.tasks.find(function(x){ return x.id===taskId; });
       if(!t) return;
       if(!t.subtasks) t.subtasks = [];
       t.subtasks.push({ id: 'st'+Date.now()+Math.random().toString(36).slice(2,5), title, done:false, targetCW: cwInput.value ? dateToCW(cwInput.value) : null });
       saveData();
       renderLongTermGantt();
     });
-    list.querySelector('.st-new-title').addEventListener('keydown', (e)=>{
+    list.querySelector('.st-new-title').addEventListener('keydown', function(e){
       if(e.key === 'Enter') list.querySelector('.st-add-btn').click();
     });
   });
@@ -871,25 +862,24 @@ function renderLongTermGantt(){
 function wcItemHtml(t){
   const pct = taskProgressPct(t);
   const fillClass = t.done ? 'done' : (pct >= 50 ? 'mid' : '');
-  return `
-    <div class="wc-item" draggable="true" data-id="${t.id}">
-      <div class="ttl">${escapeHtml(t.title)}</div>
-      <div class="progress-row">
-        <div class="progress-slider" data-id="${t.id}">
-          <div class="progress-slider-track"><div class="progress-slider-fill ${fillClass}" style="width:${pct}%;"></div></div>
-          <div class="progress-slider-handle ${fillClass}" style="left:${pct}%;"></div>
-        </div>
-        <div class="progress-pct">${pct}%</div>
-        <div class="wc-actions">
-          <button type="button" class="wc-btn wc-check" data-id="${t.id}" title="Mark completed">&#10003;</button>
-          <button type="button" class="wc-btn wc-cross" data-id="${t.id}" title="Not finished — push to next week">&#10007;</button>
-        </div>
-      </div>
-    </div>`;
+  return '<div class="wc-item" draggable="true" data-id="'+t.id+'">'+
+    '<div class="ttl">'+escapeHtml(t.title)+'</div>'+
+    '<div class="progress-row">'+
+      '<div class="progress-slider" data-id="'+t.id+'">'+
+        '<div class="progress-slider-track"><div class="progress-slider-fill '+fillClass+'" style="width:'+pct+'%;"></div></div>'+
+        '<div class="progress-slider-handle '+fillClass+'" style="left:'+pct+'%;"></div>'+
+      '</div>'+
+      '<div class="progress-pct">'+pct+'%</div>'+
+      '<div class="wc-actions">'+
+        '<button type="button" class="wc-btn wc-check" data-id="'+t.id+'" title="Mark completed">&#10003;</button>'+
+        '<button type="button" class="wc-btn wc-cross" data-id="'+t.id+'" title="Not finished — push to next week">&#10007;</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
 }
 
 function setupWcItemControls(){
-  document.querySelectorAll('.progress-slider').forEach(slider=>{
+  document.querySelectorAll('.progress-slider').forEach(function(slider){
     const id = slider.dataset.id;
     const handle = slider.querySelector('.progress-slider-handle');
     const fill = slider.querySelector('.progress-slider-fill');
@@ -920,7 +910,7 @@ function setupWcItemControls(){
       document.removeEventListener('touchend', onUp);
       const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
       const pct = applyVisual(pctFromClientX(clientX));
-      const t = data.tasks.find(x=>x.id===id);
+      const t = data.tasks.find(function(x){ return x.id===id; });
       if(t){
         t.manualProgress = pct;
         if(pct >= 100){ t.done = true; t.completedWeek = currentCW(); }
@@ -943,20 +933,29 @@ function setupWcItemControls(){
     }
     slider.addEventListener('mousedown', startDrag);
     slider.addEventListener('touchstart', startDrag);
-    slider.addEventListener('click', (e)=> e.stopPropagation());
+    slider.addEventListener('click', function(e){ e.stopPropagation(); });
   });
 
-  document.querySelectorAll('.wc-check').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
+  document.querySelectorAll('.wc-check').forEach(function(btn){
+    btn.addEventListener('click', function(e){
       e.stopPropagation();
-      const t = data.tasks.find(x=>x.id===btn.dataset.id);
-      if(t){ t.done = true; t.manualProgress = 100; t.completedWeek = currentCW(); saveData(); renderAll(); }
+      const t = data.tasks.find(function(x){ return x.id===btn.dataset.id; });
+      if(!t) return;
+      if(!t.done){
+        openCompleteModal(t, function(text){
+          t.done = true; t.manualProgress = 100; t.completedWeek = currentCW();
+          if(text){ if(!t.completionNotes) t.completionNotes=[]; t.completionNotes.push({text, cwDay:cwDayLabel(new Date()), createdAt:Date.now()}); }
+          saveData(); renderAll();
+        });
+      } else {
+        t.done = false; t.completedWeek = null; saveData(); renderAll();
+      }
     });
   });
-  document.querySelectorAll('.wc-cross').forEach(btn=>{
-    btn.addEventListener('click', (e)=>{
+  document.querySelectorAll('.wc-cross').forEach(function(btn){
+    btn.addEventListener('click', function(e){
       e.stopPropagation();
-      const t = data.tasks.find(x=>x.id===btn.dataset.id);
+      const t = data.tasks.find(function(x){ return x.id===btn.dataset.id; });
       if(!t) return;
       const col = btn.closest('.week-col');
       const cur = col ? { year: parseInt(col.dataset.cwYear,10), week: parseInt(col.dataset.cwWeek,10) } : currentCW();
@@ -972,15 +971,7 @@ function setupWcItemControls(){
 function openTaskDetail(t){
   if(!t) return;
   document.getElementById('td-title').textContent = t.title;
-  document.getElementById('td-meta').innerHTML = `
-    <span class="badge ${t.priority==='High'?'high':'normal'}">${t.priority}</span>
-    <span class="badge dept">${t.department}</span>
-    <span class="badge cat">${t.category}</span>
-    <span class="badge oem">${t.oem||'-'}</span>
-    <span class="badge spec">${t.specification}</span>
-    <span class="badge ${t.done?'done':'normal'}">${t.done ? 'Completed' : 'To do'}</span>
-    ${t.duration ? '<span class="badge duration">'+t.duration+' '+t.durationUnit+'</span>' : ''}
-    ${t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : ''}`;
+  const depts = Array.isArray(t.department) ? t.department : (t.department ? [t.department] : []);
   const pct = taskProgressPct(t);
   const fillEl = document.getElementById('td-progress');
   fillEl.style.width = pct + '%';
@@ -989,45 +980,116 @@ function openTaskDetail(t){
   document.getElementById('td-progress-label').textContent = t.done ? 'Completed' : (pct + '% progress');
   document.getElementById('td-desc').textContent = t.description ? t.description : 'No additional explanation provided for this topic.';
   document.getElementById('td-toggle-done').textContent = t.done ? 'Reopen' : 'Mark done';
+
+  // meta badges (right column)
+  let metaHtml =
+    '<span class="badge '+(t.priority==='High'?'high':'normal')+'">'+t.priority+'</span>'+
+    depts.map(function(d){ return '<span class="badge dept">'+escapeHtml(d)+'</span>'; }).join('')+
+    '<span class="badge cat">'+t.category+'</span>'+
+    '<span class="badge oem">'+(t.oem||'-')+'</span>'+
+    '<span class="badge '+(t.done?'done':'normal')+'">'+(t.done ? 'Completed' : 'To do')+'</span>'+
+    (t.type==='longterm' ? '<span class="badge lt-active">Long-term · due '+escapeHtml(t.endDate||'-')+'</span>' : '');
+  document.getElementById('td-meta').innerHTML = metaHtml;
+
+  // completion notes section
+  const compWrap = document.getElementById('td-completion-notes-wrap');
+  const compList = document.getElementById('td-completion-notes-list');
+  if(t.completionNotes && t.completionNotes.length){
+    compList.innerHTML = t.completionNotes.map(function(cn){
+      return '<div class="td-note-item"><div class="td-note-date">'+(cn.cwDay||'')+'</div>'+escapeHtml(cn.text)+'</div>';
+    }).join('');
+    compWrap.style.display = '';
+  } else {
+    compWrap.style.display = 'none';
+  }
+
+  // notes section
+  function renderTdNotes(){
+    const notesList = document.getElementById('td-notes-list');
+    const taskNotes = data.notes.filter(function(n){ return n.taskId===t.id; }).sort(function(a,b){ return a.createdAt - b.createdAt; });
+    notesList.innerHTML = taskNotes.length ? taskNotes.map(function(n){
+      return '<div class="td-note-item"><div class="td-note-date">'+(n.cwDay || cwDayLabel(new Date(n.createdAt)))+'</div>'+escapeHtml(n.text)+'</div>';
+    }).join('') : '<p class="small" style="margin:0 0 8px;">No notes yet.</p>';
+  }
+  renderTdNotes();
+  document.getElementById('td-note-input').value = '';
+
   const overlay = document.getElementById('task-detail-overlay');
   overlay.dataset.id = t.id;
   overlay.classList.add('show');
+
+  // wire add note button (replace to avoid duplicate listeners)
+  const addNoteBtn = document.getElementById('td-add-note');
+  const newAddNoteBtn = addNoteBtn.cloneNode(true);
+  addNoteBtn.parentNode.replaceChild(newAddNoteBtn, addNoteBtn);
+  newAddNoteBtn.addEventListener('click', function(){
+    const text = document.getElementById('td-note-input').value.trim();
+    if(!text) return;
+    data.notes.push({ id:'n'+Date.now()+Math.random().toString(36).slice(2,7), taskId:t.id, text, createdAt:Date.now(), cwDay:cwDayLabel(new Date()) });
+    saveData();
+    renderTdNotes();
+    document.getElementById('td-note-input').value = '';
+  });
 }
-document.getElementById('td-close').addEventListener('click', ()=>{
+
+document.getElementById('td-close').addEventListener('click', function(){
   document.getElementById('task-detail-overlay').classList.remove('show');
 });
-document.getElementById('td-toggle-done').addEventListener('click', ()=>{
+document.getElementById('td-toggle-done').addEventListener('click', function(){
   const overlay = document.getElementById('task-detail-overlay');
-  const t = data.tasks.find(x=>x.id===overlay.dataset.id);
-  if(t){ t.done = !t.done; t.completedWeek = t.done ? currentCW() : null; saveData(); overlay.classList.remove('show'); renderAll(); }
+  const t = data.tasks.find(function(x){ return x.id===overlay.dataset.id; });
+  if(!t) return;
+  if(!t.done){
+    openCompleteModal(t, function(text){
+      t.done = true; t.manualProgress = 100; t.completedWeek = currentCW();
+      if(text){ if(!t.completionNotes) t.completionNotes=[]; t.completionNotes.push({text, cwDay:cwDayLabel(new Date()), createdAt:Date.now()}); }
+      saveData(); overlay.classList.remove('show'); renderAll();
+    });
+  } else {
+    t.done = false; t.completedWeek = null; saveData(); overlay.classList.remove('show'); renderAll();
+  }
 });
-document.getElementById('td-edit').addEventListener('click', ()=>{
+document.getElementById('td-edit').addEventListener('click', function(){
   const overlay = document.getElementById('task-detail-overlay');
-  const t = data.tasks.find(x=>x.id===overlay.dataset.id);
+  const t = data.tasks.find(function(x){ return x.id===overlay.dataset.id; });
   if(t){ overlay.classList.remove('show'); loadTaskIntoForm(t); }
 });
+
+// ---------- Completion modal ----------
+function openCompleteModal(t, onConfirm){
+  document.getElementById('complete-sub').textContent = '"'+t.title+'"';
+  document.getElementById('complete-note').value = '';
+  document.getElementById('complete-overlay').classList.add('show');
+  document.getElementById('complete-confirm').onclick = function(){
+    const text = document.getElementById('complete-note').value.trim();
+    document.getElementById('complete-overlay').classList.remove('show');
+    onConfirm(text);
+  };
+  document.getElementById('complete-skip').onclick = function(){
+    document.getElementById('complete-overlay').classList.remove('show');
+    onConfirm('');
+  };
+}
 
 function renderUpcomingWeeks(){
   const slots = computePlanning(3);
   const plannedIds = new Set();
-  slots.forEach(s=> s.tasks.forEach(t=> plannedIds.add(t.id)));
+  slots.forEach(function(s){ s.tasks.forEach(function(t){ plannedIds.add(t.id); }); });
   const wrap = document.getElementById('upcoming-weeks');
-  wrap.innerHTML = slots.map((slot, idx)=>{
-    const items = slot.tasks.map(wcItemHtml).join('') || '<p class="empty">No topics planned for this week.</p>';
-    return `
-      <div class="week-col" data-cw-year="${slot.year}" data-cw-week="${slot.week}">
-        <div class="week-col-head">
-          <div class="lbl">CW ${slot.label}${idx===0?' · current':''}</div>
-          <div class="cnt">${slot.tasks.length} / ${data.capacity} topics</div>
-        </div>
-        <div class="week-col-body" data-drop="week"></div>
-      </div>`;
+  wrap.innerHTML = slots.map(function(slot, idx){
+    return '<div class="week-col" data-cw-year="'+slot.year+'" data-cw-week="'+slot.week+'">'+
+      '<div class="week-col-head">'+
+        '<div class="lbl">'+slot.label+(idx===0?' · current':'')+'</div>'+
+        '<div class="cnt">'+slot.tasks.length+' / '+data.capacity+' topics</div>'+
+      '</div>'+
+      '<div class="week-col-body" data-drop="week"></div>'+
+    '</div>';
   }).join('');
-  wrap.querySelectorAll('.week-col').forEach((col, idx)=>{
+  wrap.querySelectorAll('.week-col').forEach(function(col, idx){
     col.querySelector('.week-col-body').innerHTML = slots[idx].tasks.map(wcItemHtml).join('') || '<p class="empty">No topics planned for this week.</p>';
   });
 
-  const remaining = data.tasks.filter(t=> t.type==='regular' && !t.done && !plannedIds.has(t.id));
+  const remaining = data.tasks.filter(function(t){ return t.type==='regular' && !t.done && !plannedIds.has(t.id); });
   const remWrap = document.getElementById('remaining-tasks');
   remWrap.innerHTML = remaining.map(wcItemHtml).join('') || '<p class="empty">No remaining unplanned topics.</p>';
   document.getElementById('remaining-count').textContent = remaining.length + ' topic' + (remaining.length===1?'':'s');
@@ -1040,31 +1102,31 @@ function setupDragAndDrop(){
   const items = document.querySelectorAll('#upcoming-weeks .wc-item, #remaining-tasks .wc-item');
   const dropZones = document.querySelectorAll('#upcoming-weeks .week-col-body, #remaining-tasks');
 
-  items.forEach(item=>{
-    item.addEventListener('dragstart', (e)=>{
+  items.forEach(function(item){
+    item.addEventListener('dragstart', function(e){
       e.dataTransfer.setData('text/plain', item.dataset.id);
       e.dataTransfer.effectAllowed = 'move';
       item.classList.add('dragging');
     });
-    item.addEventListener('dragend', ()=> item.classList.remove('dragging'));
+    item.addEventListener('dragend', function(){ item.classList.remove('dragging'); });
     let dragMoved = false;
-    item.addEventListener('dragstart', ()=>{ dragMoved = false; });
-    item.addEventListener('drag', ()=>{ dragMoved = true; });
-    item.addEventListener('click', ()=>{
+    item.addEventListener('dragstart', function(){ dragMoved = false; });
+    item.addEventListener('drag', function(){ dragMoved = true; });
+    item.addEventListener('click', function(){
       if(dragMoved) return;
-      const t = data.tasks.find(x=>x.id===item.dataset.id);
+      const t = data.tasks.find(function(x){ return x.id===item.dataset.id; });
       openTaskDetail(t);
     });
   });
 
-  dropZones.forEach(zone=>{
-    zone.addEventListener('dragover', (e)=>{ e.preventDefault(); zone.classList.add('drag-over'); });
-    zone.addEventListener('dragleave', ()=> zone.classList.remove('drag-over'));
-    zone.addEventListener('drop', (e)=>{
+  dropZones.forEach(function(zone){
+    zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function(){ zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function(e){
       e.preventDefault();
       zone.classList.remove('drag-over');
       const id = e.dataTransfer.getData('text/plain');
-      const t = data.tasks.find(x=>x.id===id);
+      const t = data.tasks.find(function(x){ return x.id===id; });
       if(!t) return;
       const col = zone.closest('.week-col');
       if(col){
@@ -1080,21 +1142,15 @@ function setupDragAndDrop(){
   });
 }
 
-// ---------- Week review pop-up: ask whether tasks planned for a now-past week were completed ----------
+// ---------- Week review pop-up ----------
 function checkWeekReview(){
   if(!data.reviewedWeeks) data.reviewedWeeks = [];
   const start = currentCW();
-  // Determine which open (not-yet-done) regular tasks were planned for past weeks: we approximate
-  // "planned for week W" using the current planning snapshot is impossible retroactively, so instead
-  // we ask about any *open* regular tasks whose original target week (by creation-order distribution
-  // at the time) has now passed. Simplest reliable signal: an open regular task counts as "overdue
-  // for review" once at least one full week has passed since it was created and it's still open,
-  // and we haven't reviewed that week yet.
   let cur = prevCW(start.year, start.week);
   for(let i=0;i<8;i++){
     const k = cwKey(cur);
     if(data.reviewedWeeks.includes(k)){ cur = prevCW(cur.year, cur.week); continue; }
-    const createdInOrBefore = data.tasks.filter(t=>{
+    const createdInOrBefore = data.tasks.filter(function(t){
       if(t.type !== 'regular') return false;
       const createdCW = isoWeekInfo(new Date(t.createdAt));
       return cwKey(createdCW) <= k && (!t.done || (t.completedWeek && cwKey(t.completedWeek) > k));
@@ -1114,23 +1170,16 @@ let reviewChoices = {};
 function openReviewModal(weekObj, tasks){
   reviewChoices = {};
   const overlay = document.getElementById('review-overlay');
-  document.getElementById('review-title').textContent = `Week CW ${cwLabel(weekObj.year, weekObj.week)} has passed`;
+  document.getElementById('review-title').textContent = 'Week '+cwLabel(weekObj.year, weekObj.week)+' has passed';
   document.getElementById('review-sub').textContent = 'Please confirm whether each of these topics was completed during that week.';
   const list = document.getElementById('review-list');
-  list.innerHTML = tasks.map(t=>`
-    <div class="review-item" data-id="${t.id}">
-      <span class="ttl">${escapeHtml(t.title)}</span>
-      <span class="opts">
-        <button class="secondary" data-choice="yes">Completed</button>
-        <button class="secondary" data-choice="no">Not completed</button>
-      </span>
-    </div>`).join('');
-  list.querySelectorAll('.review-item').forEach(row=>{
+  list.innerHTML = tasks.map(function(t){ return '<div class="review-item" data-id="'+t.id+'"><span class="ttl">'+escapeHtml(t.title)+'</span><span class="opts"><button class="secondary" data-choice="yes">Completed</button><button class="secondary" data-choice="no">Not completed</button></span></div>'; }).join('');
+  list.querySelectorAll('.review-item').forEach(function(row){
     const id = row.dataset.id;
-    row.querySelectorAll('button[data-choice]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
+    row.querySelectorAll('button[data-choice]').forEach(function(btn){
+      btn.addEventListener('click', function(){
         reviewChoices[id] = btn.dataset.choice;
-        row.querySelectorAll('button').forEach(b=>b.classList.remove('chosen-yes','chosen-no'));
+        row.querySelectorAll('button').forEach(function(b){ b.classList.remove('chosen-yes','chosen-no'); });
         btn.classList.add(btn.dataset.choice === 'yes' ? 'chosen-yes' : 'chosen-no');
       });
     });
@@ -1141,11 +1190,11 @@ function openReviewModal(weekObj, tasks){
   overlay.dataset.weekWeek = weekObj.week;
 }
 
-document.getElementById('review-confirm').addEventListener('click', ()=>{
+document.getElementById('review-confirm').addEventListener('click', function(){
   const overlay = document.getElementById('review-overlay');
   const weekObj = { year: parseInt(overlay.dataset.weekYear,10), week: parseInt(overlay.dataset.weekWeek,10) };
-  Object.keys(reviewChoices).forEach(id=>{
-    const t = data.tasks.find(x=>x.id===id);
+  Object.keys(reviewChoices).forEach(function(id){
+    const t = data.tasks.find(function(x){ return x.id===id; });
     if(!t) return;
     if(reviewChoices[id] === 'yes'){
       t.done = true;
@@ -1164,31 +1213,31 @@ document.getElementById('review-confirm').addEventListener('click', ()=>{
 function renderNotes(){
   const sel = document.getElementById('note-task');
   sel.innerHTML = '<option value="">— General note —</option>' +
-    data.tasks.map(t=>`<option value="${t.id}">${escapeHtml(t.title)}</option>`).join('');
+    data.tasks.map(function(t){ return '<option value="'+t.id+'">'+escapeHtml(t.title)+'</option>'; }).join('');
 
   const list = document.getElementById('notes-list');
   list.innerHTML = '';
-  const notes = [...data.notes].sort((a,b)=> b.createdAt - a.createdAt);
+  const notes = [...data.notes].sort(function(a,b){ return b.createdAt - a.createdAt; });
   document.getElementById('no-notes').style.display = notes.length ? 'none' : 'block';
-  notes.forEach(n=>{
-    const task = data.tasks.find(t=>t.id===n.taskId);
+  notes.forEach(function(n){
+    const task = data.tasks.find(function(t){ return t.id===n.taskId; });
     const div = document.createElement('div');
     div.className = 'note-item';
-    div.innerHTML = `
-      <div class="meta">${task ? 'On task: <strong>'+escapeHtml(task.title)+'</strong>' : 'General note'} · ${new Date(n.createdAt).toLocaleString()}
-        <button class="secondary danger" style="float:right;" data-id="${n.id}">Delete</button>
-      </div>
-      <div>${escapeHtml(n.text).replace(/\n/g,'<br>')}</div>`;
+    div.innerHTML =
+      '<div class="meta">'+(task ? 'On task: <strong>'+escapeHtml(task.title)+'</strong>' : 'General note')+' · '+new Date(n.createdAt).toLocaleString()+
+        '<button class="secondary danger" style="float:right;" data-id="'+n.id+'">Delete</button>'+
+      '</div>'+
+      '<div>'+escapeHtml(n.text).replace(/\n/g,'<br>')+'</div>';
     list.appendChild(div);
   });
-  list.querySelectorAll('button[data-id]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      data.notes = data.notes.filter(n=>n.id!==btn.dataset.id);
+  list.querySelectorAll('button[data-id]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      data.notes = data.notes.filter(function(n){ return n.id!==btn.dataset.id; });
       saveData(); renderNotes();
     });
   });
 }
-document.getElementById('save-note').addEventListener('click', ()=>{
+document.getElementById('save-note').addEventListener('click', function(){
   const text = document.getElementById('note-text').value.trim();
   if(!text){ alert('Please write a note.'); return; }
   const taskId = document.getElementById('note-task').value || null;
@@ -1201,19 +1250,19 @@ document.getElementById('save-note').addEventListener('click', ()=>{
 // ---------- Settings ----------
 const capacitySelect = document.getElementById('capacity-select');
 capacitySelect.value = String(data.capacity);
-capacitySelect.addEventListener('change', ()=>{
+capacitySelect.addEventListener('change', function(){
   data.capacity = parseInt(capacitySelect.value, 10);
   saveData();
   renderAll();
 });
 
 // ---------- Tabs ----------
-document.getElementById('tabs').addEventListener('click', (e)=>{
+document.getElementById('tabs').addEventListener('click', function(e){
   const btn = e.target.closest('button[data-tab]');
   if(!btn) return;
-  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#tabs button').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
   document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
   const titles = { overview:'Open Topics', tasks:'Task Register', notes:'Notes', settings:'Settings' };
   document.getElementById('hero-title').textContent = titles[btn.dataset.tab] || 'Open Topics';
